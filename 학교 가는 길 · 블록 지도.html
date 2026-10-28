@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>학교 가는 길 · 블록 지도</title>
+<style>
+:root{--bg:#f7f7f5;--card:#ffffff;--text:#222;--muted:#777;--line:#e2e2de;--road:#dcdcd6;--block:#ffffff;--bldg:#e9e7e0;--alley:#f3f2ee;}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#15161a;--card:#1e2026;--text:#eee;--muted:#9a9ca5;--line:#33353d;--road:#3a3c44;--block:#2a2d35;--bldg:#2a2d35;--alley:#1f2127;}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif;background:var(--bg);color:var(--text);padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));}
+h1{font-size:20px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.5}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 10px}
+#view{position:relative;height:460px;overflow:hidden;border-radius:8px;cursor:grab;touch-action:none;user-select:none;background:var(--alley)}
+#view.dragging{cursor:grabbing}
+#map{position:absolute;left:0;top:0;transform-origin:0 0}
+.ctrl{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;font-size:13px}
+.ctrl button{font:inherit;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer}
+.ctrl .hint{color:var(--muted);margin-left:auto;font-size:12px}
+.legend{display:flex;flex-wrap:wrap;gap:10px 14px;font-size:12px;margin-top:10px}
+.legend span{display:flex;align-items:center;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0}
+.types{display:grid;gap:8px}
+.type{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5}
+.note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:8px}
+</style>
+</head>
+<body>
+
+<h1>학교 가는 길 · 블록 지도</h1>
+<div class="sub">횡단보도끼리의 간격을 10배로 늘렸습니다. 화면을 드래그해서 이동하고, +, − 버튼이나 마우스 휠로 확대·축소할 수 있습니다. 번호를 누르면 그 위치로 이동합니다.</div>
+
+<div class="card">
+  <h2>블록 지도</h2>
+  <div id="view">
+    <svg id="map" role="img" aria-label="블록과 횡단보도 위치"></svg>
+  </div>
+</div>
+
+
+<script>
+const COLORS = { signal:"#22c55e", unsig:"#64748b", diag:"#a855f7" };
+const TYPE_LABEL = { signal:"신호등", unsig:"무신호", diag:"대각선" };
+
+// ----- 간격 설정 (기본 좌표 단위) -----
+const SP_B = 600;   // 2→1 횡단보도 사이 간격 (이전의 10배)
+const SP_A = 800;   // 4→2 횡단보도 사이 간격 (이전의 10배)
+const BAR  = 2;     // 줄무늬 두께
+const TILE = 200;   // 건물 격자 간격
+
+// ----- 블록 배치 -----
+const SMALL = 200;                 // 학교, 1, 3 블록 한 변
+const STREET = 160;                // 도로 폭
+const LX = 40,  LW = SMALL;        // 왼쪽 열
+const VX = LX + LW, VW = STREET;   // 세로 도로 (x 240~400)
+const RX = VX + VW;                // 오른쪽 열 시작 (x 400)
+const RW = 2200;                   // 오른쪽 열 폭
+const SCHOOL_Y = 40;
+const H_TOP = SCHOOL_Y + SMALL;    // 240 (학교 아래 도로 시작)
+const ROW1_Y = H_TOP + STREET;     // 400 (1번, 2번 블록 시작)
+const ROW1_H = 2000;               // 1번, 2번 블록 높이
+const H_MID = ROW1_Y + ROW1_H;     // 2400 (중간 가로 도로 시작)
+const ROW2_Y = H_MID + STREET;     // 2560 (3번, 4번 블록 시작)
+const ROW2_H = 400;                // 4번 블록 높이
+const SMALL3_H = SMALL;            // 3번 블록 높이
+
+// 횡단보도 위치
+const B_Y0 = ROW1_Y + 200;         // 2→1 첫 번째 (y 600)
+const A_X0 = RX + 200;             // 4→2 첫 번째 (x 600)
+const B_YS = [B_Y0, B_Y0 + SP_B, B_Y0 + SP_B*2];       // 600, 1200, 1800
+const A_XS = [560, A_X0 + SP_A, A_X0 + SP_A*2];       // 600, 1400, 2200
+const LEFT_CX = LX + LW/2;         // 140 (왼쪽 열 가운데)
+const C_Y = ROW2_Y + 70;
+const H_Y = ROW2_Y + 330;          // 3→4 횡단보도 y 중심
+
+// 전체 그림 범위
+const MIN_X = -300, MAX_X = 3000, MIN_Y = -300, MAX_Y = 3300;
+const W = MAX_X - MIN_X, H = MAX_Y - MIN_Y;
+
+// ----- 횡단보도 정의 -----
+// 틈(x0~x1, y0~y1)을 직접 잇습니다. dir 'x' = 좌우로 건넘, 'y' = 위아래로 건넘
+const CROSSINGS = [
+  
+  
+  { id:"B2", x0:VX, x1:VX+VW, y0:B_YS[1]-18, y1:B_YS[1]+18, dir:'x', mx:VX+22, my:B_YS[1], type:'signal', name:"2 → 1 (가운데)" },
+  { id:"B3", x0:VX, x1:VX+VW, y0:ROW1_Y+ROW1_H-136, y1:ROW1_Y+ROW1_H-100, dir:'x', mx:VX+22, my:ROW1_Y+ROW1_H-118, type:'signal', name:"2 → 1 (아래)" },
+  { id:"D",  x0:LEFT_CX-30, x1:LEFT_CX+30, y0:H_MID, y1:ROW2_Y, dir:'y', mx:VX-40, my:(H_MID+ROW2_Y)/2, type:'signal', name:"3 → 1" },
+  { id:"A1", x0:A_XS[0]-18, x1:A_XS[0]+18, y0:H_MID, y1:ROW2_Y, dir:'y', mx:A_XS[0], my:H_MID+STREET/2+40, type:'signal', name:"4 → 2 (왼쪽)" },
+  { id:"A2", x0:A_XS[1]-18, x1:A_XS[1]+18, y0:H_MID, y1:ROW2_Y, dir:'y', mx:A_XS[1], my:H_MID+STREET/2+40, type:'signal', name:"4 → 2 (가운데)" },
+  { id:"A3", x0:A_XS[2]-18, x1:A_XS[2]+18, y0:H_MID, y1:ROW2_Y, dir:'y', mx:A_XS[2], my:H_MID+STREET/2+40, type:'signal', name:"4 → 2 (오른쪽)" },
+  { id:"C",  x0:VX, x1:VX+VW, y0:C_Y-18, y1:C_Y+18, dir:'x', mx:VX+22, my:C_Y, type:'signal', name:"4 → 3" },
+  { id:"H",  x0:RX+RW, x1:RX+RW+STREET, y0:H_Y-18, y1:H_Y+18, dir:'x', mx:RX+RW+22, my:H_Y-40, type:'unsig', name:"집 → 4 (신호 없음)" }
+];
+
+// 학교 블록 오른쪽 아래 모서리 → 2번 블록 왼쪽 위 모서리 대각선 횡단보도
+const DIAGONAL = { id:"DG", x1:VX, y1:H_TOP, x2:RX, y2:ROW1_Y, mx:VX+VW/2, my:H_TOP+STREET/2, name:"대각선 횡단보도 (학교↔1번, 2→1 맨 위 공용)" };
+
+// 도로 (걷는 곳). 나머지는 건물
+const ROADS = [
+  {x:MIN_X, y:H_TOP, w:MAX_X-MIN_X, h:STREET},          // 학교 아래 가로길
+  {x:VX,    y:MIN_Y, w:VW,         h:MAX_Y-MIN_Y},      // 가운데 세로길
+  {x:MIN_X, y:H_MID, w:MAX_X-MIN_X, h:STREET},          // 중간 가로길
+  {x:RX+RW, y:H_MID, w:STREET,     h:MAX_Y-H_MID}       // 집 앞 세로길
+];
+
+// 블록
+const BLOCKS = [
+  {label:"학교", x:LX, y:SCHOOL_Y, w:SMALL, h:SMALL, school:true, fs:26},
+  {label:"1",    x:LX, y:ROW1_Y,    w:LW,    h:ROW1_H, fs:120},
+  {label:"3",    x:LX, y:ROW2_Y,    w:LW,    h:SMALL3_H, fs:80},
+  {label:"2",    x:RX, y:ROW1_Y,    w:RW,    h:ROW1_H, fs:160},
+  {label:"4",    x:RX, y:ROW2_Y,    w:RW,    h:ROW2_H, fs:120}
+];
+
+function bridge(c, color){
+  let s = `<rect x="${c.x0}" y="${c.y0}" width="${c.x1-c.x0}" height="${c.y1-c.y0}" fill="none" stroke="${color}" stroke-width="${BAR}"/>`;
+  if(c.dir==='x'){
+    for(let x=c.x0+10; x<c.x1-8; x+=12) s+=`<rect x="${x}" y="${c.y0+3}" width="${BAR}" height="${c.y1-c.y0-6}" fill="#fff"/>`;
+  } else {
+    for(let y=c.y0+10; y<c.y1-8; y+=12) s+=`<rect x="${c.x0+3}" y="${y}" width="${c.x1-c.x0-6}" height="${BAR}" fill="#fff"/>`;
+  }
+  return s;
+}
+
+function drawMap(){
+  const svg = document.getElementById('map');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.style.width = W + 'px';
+  svg.style.height = H + 'px';
+
+  let s = `<rect x="${MIN_X}" y="${MIN_Y}" width="${W}" height="${H}" fill="var(--alley)"/>`;
+
+  // 건물: 걷지 않는 곳은 전부 건물
+  for(let gx=MIN_X; gx<MAX_X; gx+=TILE){
+    for(let gy=MIN_Y; gy<MAX_Y; gy+=TILE){
+      s+=`<rect x="${gx+20}" y="${gy+20}" width="160" height="160" rx="8" fill="var(--bldg)" stroke="var(--line)" stroke-width="${BAR}"/>`;
+    }
+  }
+
+  ROADS.forEach(r=>{ s+=`<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="var(--road)"/>`; });
+
+  BLOCKS.forEach(b=>{
+    const fill = b.school ? "#dbeafe" : "var(--block)";
+    s+=`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="16" fill="${fill}" stroke="var(--line)" stroke-width="${BAR}"/>`;
+    s+=`<text x="${b.x+b.w/2}" y="${b.y+b.h/2}" font-size="${b.fs}" font-weight="800" text-anchor="middle" dominant-baseline="middle" fill="${b.school?'#1e40af':'var(--muted)'}" ${b.school?'':'opacity="0.6"'}>${b.label}</text>`;
+  });
+
+  // 집
+  s+=`<rect x="${RX+RW+STREET+20}" y="${H_Y-22}" width="120" height="44" rx="8" fill="var(--card)" stroke="#3b82f6" stroke-width="${BAR}"/>
+      <text x="${RX+RW+STREET+80}" y="${H_Y}" font-size="22" font-weight="700" text-anchor="middle" dominant-baseline="middle" fill="var(--text)">집</text>`;
+
+  // 대각선
+  s+=`<line x1="${DIAGONAL.x1}" y1="${DIAGONAL.y1}" x2="${DIAGONAL.x2}" y2="${DIAGONAL.y2}" stroke="${COLORS.diag}" stroke-width="${BAR*2}" stroke-dasharray="14 8"/>
+      <circle cx="${DIAGONAL.x1}" cy="${DIAGONAL.y1}" r="8" fill="${COLORS.diag}"/>
+      <circle cx="${DIAGONAL.x2}" cy="${DIAGONAL.y2}" r="8" fill="${COLORS.diag}"/>`;
+
+  CROSSINGS.forEach(c=>{ s+=bridge(c, COLORS[c.type]); });
+
+  // 번호 표시
+  s+=`<g class="mk" id="mDG" onclick="hl('DG')" style="cursor:pointer">
+        <circle cx="${DIAGONAL.mx}" cy="${DIAGONAL.my}" r="30" fill="${COLORS.diag}" stroke="#fff" stroke-width="4"/>
+        <text x="${DIAGONAL.mx}" y="${DIAGONAL.my+8}" font-size="24" font-weight="700" text-anchor="middle" fill="#fff">DG</text>
+      </g>`;
+  CROSSINGS.forEach(c=>{
+    const color = COLORS[c.type];
+    s+=`<g class="mk" id="m${c.id}" onclick="hl('${c.id}')" style="cursor:pointer">
+          <circle cx="${c.mx}" cy="${c.my}" r="30" fill="${color}" stroke="#fff" stroke-width="4"/>
+          <text x="${c.mx}" y="${c.my+8}" font-size="${c.id.length>1?22:26}" font-weight="700" text-anchor="middle" fill="#fff">${c.id}</text>
+        </g>`;
+  });
+
+  svg.innerHTML = s;
+}
+
+function renderList(){
+  const all = [
+    {id:"DG", name:DIAGONAL.name, type:'diag'},
+    ...CROSSINGS.map(c=>({id:c.id, name:c.name, type:c.type}))
+  ];
+  document.getElementById('list').innerHTML = all.map(c=>`
+    <li style="display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px" onclick="hl('${c.id}')">
+      <span style="min-width:30px;font-weight:700">${c.id}</span>
+      <span style="flex:1">${c.name}</span>
+      <span style="font-size:11px;padding:2px 7px;border-radius:6px;color:#fff;background:${COLORS[c.type]}">${TYPE_LABEL[c.type]}</span>
+    </li>`).join('');
+}
+
+function hl(id){
+  document.querySelectorAll('.mk circle').forEach(ci=>{ ci.setAttribute('stroke','#fff'); ci.setAttribute('stroke-width','4'); });
+  const c = document.querySelector(`#m${id} circle`);
+  if(c){ c.setAttribute('stroke','#facc15'); c.setAttribute('stroke-width','8'); }
+  focusOn(id);
+}
+
+// ----- 드래그 이동 / 확대·축소 -----
+const view = document.getElementById('view');
+const map  = document.getElementById('map');
+let k = 1, tx = 0, ty = 0;
+let drag = null;
+
+function vw(){ return view.clientWidth; }
+function vh(){ return view.clientHeight; }
+
+function clamp(){
+  const minK = Math.min(vw()/W, vh()/H);
+  k = Math.max(minK, Math.min(k, 2));
+  const cw = W*k, ch = H*k;
+  tx = cw <= vw() ? (vw()-cw)/2 : Math.max(vw()-cw, Math.min(0, tx));
+  ty = ch <= vh() ? (vh()-ch)/2 : Math.max(vh()-ch, Math.min(0, ty));
+}
+
+function apply(){
+  clamp();
+  map.style.transform = `translate(${tx}px, ${ty}px) scale(${k})`;
+}
+
+function zoomAt(factor, cx, cy){
+  const nk = Math.max(0.05, Math.min(k*factor, 2));
+  const r = nk/k;
+  tx = cx - (cx - tx)*r;
+  ty = cy - (cy - ty)*r;
+  k = nk;
+  apply();
+}
+
+function resetView(){
+  k = Math.min(vw()/W, vh()/H) * 3;
+  tx = 0; ty = 0;
+  apply();
+}
+
+function focusOn(id){
+  let x, y;
+  if(id==='DG'){ x = DIAGONAL.mx; y = DIAGONAL.my; }
+  else { const c = CROSSINGS.find(v=>v.id===id); if(!c) return; x = c.mx; y = c.my; }
+  k = Math.max(k, 0.4);
+  tx = vw()/2 - (x - MIN_X)*k;
+  ty = vh()/2 - (y - MIN_Y)*k;
+  apply();
+}
+
+// 한 손가락 드래그: 이동 / 두 손가락 벌리기·좁히기: 확대·축소
+const pts = new Map();
+let pinch = null;
+const dist = (a,b)=> Math.hypot(a.x-b.x, a.y-b.y);
+const mid  = (a,b)=> ({x:(a.x+b.x)/2, y:(a.y+b.y)/2});
+
+view.addEventListener('pointerdown', e=>{
+  view.setPointerCapture(e.pointerId);
+  pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  view.classList.add('dragging');
+  if(pts.size===1){
+    drag = {x:e.clientX, y:e.clientY, tx, ty};
+    pinch = null;
+  } else if(pts.size===2){
+    const [a,b] = [...pts.values()];
+    const m0 = mid(a,b);
+    pinch = {d:dist(a,b), k:k, mx:m0.x, my:m0.y};
+    drag = null;
+  }
+});
+
+view.addEventListener('pointermove', e=>{
+  if(!pts.has(e.pointerId)) return;
+  pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if(pts.size>=2 && pinch){
+    const [a,b] = [...pts.values()];
+    const target = pinch.k * dist(a,b) / pinch.d;
+    const r = view.getBoundingClientRect();
+    const m = mid(a,b);
+    tx += m.x - pinch.mx; ty += m.y - pinch.my;
+    pinch.mx = m.x; pinch.my = m.y;
+    zoomAt(target/k, m.x - r.left, m.y - r.top);
+  } else if(drag){
+    tx = drag.tx + (e.clientX - drag.x);
+    ty = drag.ty + (e.clientY - drag.y);
+    apply();
+  }
+});
+
+['pointerup','pointercancel'].forEach(ev=>view.addEventListener(ev, e=>{
+  pts.delete(e.pointerId);
+  if(pts.size===1){
+    const p = [...pts.values()][0];
+    drag = {x:p.x, y:p.y, tx, ty};
+    pinch = null;
+  } else if(pts.size===0){
+    drag = null;
+    pinch = null;
+    view.classList.remove('dragging');
+  }
+}));
+
+view.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const r = view.getBoundingClientRect();
+  zoomAt(e.deltaY < 0 ? 1.15 : 1/1.15, e.clientX - r.left, e.clientY - r.top);
+}, {passive:false});
+
+window.addEventListener('resize', apply);
+
+// 원점 보정: 그림 좌표 (MIN_X, MIN_Y)가 화면 왼쪽 위에 오도록 SVG 안에서 평행이동
+(function(){
+  const svgEl = document.getElementById('map');
+  drawMap();
+  // viewBox를 MIN 기준으로 맞춰 좌표 변환을 단순화
+  svgEl.setAttribute('viewBox', `${MIN_X} ${MIN_Y} ${W} ${H}`);
+})();
+resetView();
+(function(){
+  const ns = 'http://www.w3.org/2000/svg';
+  const HOME_MAP = {x:2840, y:2890};
+  const SCHOOL_MAP = {x:140, y:140};
+  const st = {home:null, school:null, me:null, watch:null, centered:false};
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;font-size:13px;align-items:center';
+  const btn = 'font:inherit;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer';
+  wrap.innerHTML = `<button type="button" id="gpsOn" style="${btn}">내 위치 켜기</button>`
+    + `<button type="button" id="setHome" style="${btn}">여기를 집으로</button>`
+    + `<button type="button" id="setSchool" style="${btn}">여기를 학교로</button>`
+    + `<span id="gpsMsg" style="color:var(--muted);font-size:12px;width:100%">내 위치 켜기 후, 집과 학교에서 각각 버튼을 눌러 위치를 저장하세요.</span>`;
+  view.parentElement.appendChild(wrap);
+  const msg = t => { document.getElementById('gpsMsg').textContent = t; };
+
+  const svgEl = document.getElementById('map');
+  const dot = document.createElementNS(ns, 'g');
+  dot.style.display = 'none';
+  dot.innerHTML = '<circle r="34" fill="#3b82f6" fill-opacity="0.25"/><circle r="14" fill="#3b82f6" stroke="#fff" stroke-width="5"/>';
+  svgEl.appendChild(dot);
+
+  // 위도·경도를 집 기준 미터 단위(x: 동쪽, y: 북쪽)로 변환
+  function toM(p, ref){
+    const lat0 = ref.lat * Math.PI / 180;
+    return {x:(p.lng - ref.lng) * 111320 * Math.cos(lat0), y:(p.lat - ref.lat) * 110574};
+  }
+
+  // 실제 집→학교 방향과 거리를 지도의 집→학교 방향과 거리에 맞춰 회전·축척
+  function mapPos(){
+    if(!st.home || !st.school || !st.me) return null;
+    const vr = toM(st.school, st.home);
+    const vrs = {x:vr.x, y:-vr.y};
+    const vm = {x:SCHOOL_MAP.x - HOME_MAP.x, y:SCHOOL_MAP.y - HOME_MAP.y};
+    const lr = Math.hypot(vrs.x, vrs.y), lm = Math.hypot(vm.x, vm.y);
+    if(lr < 1) return null;
+    const s = lm / lr;
+    const th = Math.atan2(vm.y, vm.x) - Math.atan2(vrs.y, vrs.x);
+    const p = toM(st.me, st.home);
+    const ps = {x:p.x, y:-p.y};
+    const c = Math.cos(th), sn = Math.sin(th);
+    return {x: HOME_MAP.x + s*(c*ps.x - sn*ps.y), y: HOME_MAP.y + s*(sn*ps.x + c*ps.y)};
+  }
+
+  function focusPoint(p){
+    k = Math.max(k, 0.5);
+    tx = vw()/2 - (p.x - MIN_X)*k;
+    ty = vh()/2 - (p.y - MIN_Y)*k;
+    apply();
+  }
+
+  function update(){
+    const p = mapPos();
+    if(!p){ dot.style.display = 'none'; return; }
+    dot.setAttribute('transform', `translate(${p.x} ${p.y})`);
+    dot.style.display = '';
+    if(!st.centered){ st.centered = true; focusPoint(p); }
+  }
+
+  function startWatch(){
+    if(!navigator.geolocation){ msg('이 기기에서는 위치를 사용할 수 없습니다.'); return; }
+    if(st.watch !== null) return;
+    st.watch = navigator.geolocation.watchPosition(pos=>{
+      st.me = {lat:pos.coords.latitude, lng:pos.coords.longitude};
+      msg(`위치 확인됨 (오차 약 ${Math.round(pos.coords.accuracy)}m)`);
+      update();
+    }, ()=>{
+      msg('위치를 가져오지 못했습니다. 브라우저의 위치 권한을 확인해 주세요.');
+    }, {enableHighAccuracy:true, maximumAge:5000, timeout:15000});
+  }
+
+  function setAnchor(which){
+    if(!st.me){ msg('먼저 내 위치 켜기를 눌러 위치를 확인해 주세요.'); return; }
+    st[which] = {...st.me};
+    if(st.home && st.school) msg('집과 학교 위치 설정 완료. 이동하면 지도에 파란 점이 표시됩니다.');
+    else msg(which === 'home' ? '집 위치를 저장했습니다. 이제 학교에서 여기를 학교로 버튼을 눌러 주세요.' : '학교 위치를 저장했습니다. 이제 집에서 여기를 집으로 버튼을 눌러 주세요.');
+    update();
+  }
+
+  document.getElementById('gpsOn').onclick = startWatch;
+  document.getElementById('setHome').onclick = ()=> setAnchor('home');
+  document.getElementById('setSchool').onclick = ()=> setAnchor('school');
+})();
+</script>
+</body>
+</html>
