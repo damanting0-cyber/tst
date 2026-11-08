@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.7.1
+// @version      1.8.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -46,8 +46,7 @@
     // 플레이어 홀드 배속
     const PLAYER_SEL = ['#player-container-id', '#player-container-outer', 'ytm-player', '#movie_player'];
     const SPEEDS = [1.5, 2, 3];
-    const SPEED_START = 1;            // 홀드 시작은 2×
-    const SPEED_STEP = 40;            // 손가락을 이만큼(px) 좌우로 옮기면 한 칸 이동
+    const SPEED_START = 1;            // 고정 기본값 (2×)
     const SPEED_LOCK_DY = 70;         // 홀드한 채 이만큼(px) 아래로 끌면 배속 고정
     const SPEED_HOLD_MS = 450;
 
@@ -389,7 +388,7 @@
         }
         html.uper-speed .uper-keep::before, html.uper-speed .uper-keep::after { opacity: 0 !important; }
 
-        /* ---- 홀드 배속 플로팅 (영상 위쪽 가운데, 가로 3칸 ↔ 고정 시 좌상단에 현재 배속 1칸) ---- */
+        /* ---- 홀드 배속 플로팅 (영상 위쪽 가운데, 가로 3칸 ↔ 고정 시 현재 배속 1칸) ---- */
         #uper-speed {
             position: fixed; z-index: 2147483645; left: 0; top: 0;
             box-sizing: border-box; width: 130px; height: 28px; padding: 2px;
@@ -409,7 +408,7 @@
             transition: opacity .2s linear, transform .35s var(--uper-ease),
                 width .4s var(--uper-ease), left .45s var(--uper-ease), top .45s var(--uper-ease), visibility 0s;
         }
-        #uper-speed.compact { width: 46px; pointer-events: auto; transform-origin: top left; }
+        #uper-speed.compact { width: 46px; pointer-events: auto; }
         #uper-speed.open.compact { transform: scale(.9); opacity: .6; }
         /* 아래로 끌 때 고정까지 남은 정도를 선택된 칸의 빨간 테두리로 표시 */
         #uper-speed .ring {
@@ -966,13 +965,39 @@
     }
 
     /* ---------- 플레이어 홀드 배속 (2× / 3× / 4×, 좌우로 밀어 선택) ---------- */
-    function playerRoot(t) {
+    const isShorts = () => location.pathname.startsWith('/shorts');
+
+    function playerRoot(t, x, y) {
         if (!t || !t.closest) return null;
         for (const s of PLAYER_SEL) {
             const el = t.closest(s);
             if (el) return el;
         }
+        // 쇼츠: 손가락 아래에 있는 영상을 품은 가장 가까운 상위 요소
+        if (isShorts() && x != null) {
+            let n = t;
+            for (let k = 0; n && n !== document.body && k < 15; k++, n = n.parentElement) {
+                for (const v of n.querySelectorAll('video')) {
+                    const r = v.getBoundingClientRect();
+                    if (r.width > 150 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return n;
+                }
+            }
+        }
         return null;
+    }
+
+    // 화면에서 가장 크게 보이는 영상 (쇼츠는 넘길 때마다 영상 요소가 바뀜)
+    function mainVideo() {
+        let best = null;
+        let bestA = 0;
+        for (const v of document.querySelectorAll('video')) {
+            const r = v.getBoundingClientRect();
+            const w = Math.min(r.right, innerWidth) - Math.max(r.left, 0);
+            const hgt = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0);
+            const a = w > 0 && hgt > 0 ? w * hgt : 0;
+            if (a > bestA) { bestA = a; best = v; }
+        }
+        return best;
     }
 
     function bindSpeedHold() {
@@ -1016,8 +1041,7 @@
         let timer = null;
         let start = null;      // 터치 시작 지점
         let lastX = 0;         // 마지막 손가락 x
-        let baseX = 0;         // 배속이 켜진 순간의 손가락 x
-        let startIdx = SPEED_START;
+        let centerX = 0;       // 영상 가운데 x (플로팅 기준)
         let root = null;
         let video = null;
         let origRate = 1;
@@ -1064,9 +1088,10 @@
             if (navigator.vibrate) navigator.vibrate(8);
         }
 
-        // 홀드가 켜진 지점 기준 좌우 이동: 오른쪽으로 빠르게, 왼쪽으로 느리게
+        // 손가락 x와 가장 가까운 칸 (플로팅 바깥이면 양 끝 칸)
         function indexAt(x) {
-            const i = startIdx + Math.round((x - baseX) / SPEED_STEP);
+            const first = centerX - FULL_W / 2 + 2 + COL / 2;
+            const i = Math.round((x - first) / COL);
             return Math.max(0, Math.min(N - 1, i));
         }
 
@@ -1085,12 +1110,13 @@
         }
 
         // 플로팅은 항상 영상 좌상단
-        // 펼쳐진 플로팅은 영상 위쪽 가운데, 고정된 작은 플로팅은 영상 좌상단
+        // 플로팅은 펼쳐졌을 때도, 고정돼 작아졌을 때도 영상 위쪽 가운데
         const FULL_W = 130;
         let morphUntil = 0;    // 이 시각까지는 위치 이동을 애니메이션으로
         function place(v, compact, animate) {
             const r = v.getBoundingClientRect();
-            const left = compact ? Math.max(r.left, 0) + 8 : r.left + r.width / 2 - FULL_W / 2;
+            centerX = r.left + r.width / 2;
+            const left = centerX - (compact ? 46 : FULL_W) / 2;
             const top = Math.max(r.top, 0) + 8;
             if (!animate) box.style.transition = 'none';
             box.style.left = left + 'px';
@@ -1125,7 +1151,7 @@
         setInterval(() => {
             if (!locked || active) return;
             // 같은 페이지에서 영상 요소가 바뀌어도 고정 배속 유지
-            const v = document.querySelector(PLAYER_SEL.map((s) => s + ' video').join(','));
+            const v = mainVideo();
             if (v && v !== lockVideo) {
                 if (lockVideo) lockVideo.removeEventListener('ratechange', guard);
                 lockVideo = v;
@@ -1151,11 +1177,9 @@
             mountBox();
             const fromCompact = wasLocked && box.classList.contains('open');
             morphUntil = Date.now() + 500;
-            place(video, false, fromCompact);   // 작은 플로팅이었다면 가운데로 미끄러지며 펼쳐짐
+            place(video, false, fromCompact);   // 작은 플로팅이었다면 그 자리에서 양옆으로 펼쳐짐
             setRing(0);
-            baseX = lastX;
-            startIdx = wasLocked ? lockIdx : SPEED_START;
-            idx = startIdx;
+            idx = indexAt(lastX);
             video.playbackRate = SPEEDS[idx];
 
             if (fromCompact) {
@@ -1177,7 +1201,7 @@
             active = false;
             const v = video;
             v.removeEventListener('ratechange', guard);
-            document.removeEventListener('touchmove', blockMove, { capture: true });
+            if (!shortsGuard) document.removeEventListener('touchmove', blockMove, { capture: true });
             document.documentElement.classList.remove('uper-speed');
             kept.forEach((n) => n.classList.remove('uper-keep'));
             if (root) root.classList.remove('uper-speed-root');
@@ -1197,7 +1221,7 @@
                 box.classList.add('compact');
                 paint(idx);
                 morphUntil = Date.now() + 500;
-                place(v, true, true);           // 줄어들며 좌상단으로 이동
+                place(v, true, true);           // 가운데에서 한 칸으로 줄어듦
             } else {
                 // 고정 안 함 (고정 중이었다면 해제): 원래 배속으로
                 const back = locked ? baseRate : origRate;
@@ -1216,12 +1240,15 @@
             if (e.touches.length !== 1) { finish(); return; }
             const t = e.target;
             if (isOurs(t) || box.contains(t)) return;
-            const r0 = playerRoot(t);
-            const v = r0 && r0.querySelector('video');
-            if (!v) return;
             const p = e.touches[0];
-            const vr = v.getBoundingClientRect();
-            if (p.clientY < vr.top || p.clientY > vr.bottom) return;
+            const r0 = playerRoot(t, p.clientX, p.clientY);
+            if (!r0) return;
+            let v = null;
+            for (const c of r0.querySelectorAll('video')) {
+                const cr = c.getBoundingClientRect();
+                if (p.clientY >= cr.top && p.clientY <= cr.bottom && cr.width > 0) { v = c; break; }
+            }
+            if (!v) return;
 
             root = r0;
             video = v;
@@ -1254,6 +1281,20 @@
             document.addEventListener(type, () => finish(), { capture: true, passive: true });
         });
         document.addEventListener('contextmenu', blockMenu, true);
+
+        // 쇼츠에서는 스크롤(다음 영상 넘김)이 터치 시작부터 결정되므로,
+        // 쇼츠 페이지에서만 미리 막을 수 있는 리스너를 걸어 두고 홀드 중일 때만 막음
+        let shortsGuard = false;
+        function syncShortsGuard() {
+            const want = isShorts();
+            if (want === shortsGuard) return;
+            shortsGuard = want;
+            if (want) document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
+            else document.removeEventListener('touchmove', blockMove, { capture: true });
+        }
+        syncShortsGuard();
+        window.addEventListener('yt-navigate-finish', syncShortsGuard);
+        setInterval(syncShortsGuard, 1000);
         document.addEventListener('visibilitychange', () => { if (document.hidden && active) { armed = locked; finish(); } });
     }
 
