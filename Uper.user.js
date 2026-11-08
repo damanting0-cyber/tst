@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.5.1
+// @version      1.5.2
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -410,17 +410,16 @@
         }
         #uper-speed.compact { height: 28px; border-radius: 14px; pointer-events: auto; }
         #uper-speed.open.compact { transform: scale(.9); opacity: .6; }
-        /* 옆으로 밀 때 고정까지 남은 정도를 테두리로 표시 */
+        /* 옆으로 밀 때 고정까지 남은 정도를 선택된 칸의 빨간 테두리로 표시 */
         #uper-speed .ring {
-            position: absolute; left: 0; top: 0; width: 46px; height: 76px;
+            position: absolute; left: 0; top: 0; width: 42px; height: 24px;
             pointer-events: none; overflow: visible;
         }
         #uper-speed .ring rect {
-            fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round;
+            fill: none; stroke: var(--uper-red); stroke-width: 2; stroke-linecap: round;
             stroke-dasharray: 100 100; stroke-dashoffset: 100;
-            transition: stroke-dashoffset .08s linear, stroke .2s, opacity .2s;
+            transition: stroke-dashoffset .08s linear, opacity .2s;
         }
-        #uper-speed.lock .ring rect { stroke: var(--uper-red); }
         #uper-speed.compact .ring { opacity: 0; }
         #uper-speed .track { position: relative; transition: transform .4s var(--uper-ease); }
         #uper-speed .hl {
@@ -981,8 +980,8 @@
             track.appendChild(seg);
         }
         box.appendChild(track);
-        const ringRect = svgEl('rect', { x: '1', y: '1', width: '44', height: '74', rx: '13', pathLength: '100' });
-        box.appendChild(svgEl('svg', { class: 'ring', viewBox: '0 0 46 76', 'aria-hidden': 'true' }, ringRect));
+        const ringRect = svgEl('rect', { x: '1', y: '1', width: '40', height: '22', rx: '11', pathLength: '100' });
+        hl.appendChild(svgEl('svg', { class: 'ring', viewBox: '0 0 42 24', 'aria-hidden': 'true' }, ringRect));
         document.body.appendChild(box);
 
         // 0~1: 테두리가 박스를 감싸는 정도
@@ -1001,6 +1000,7 @@
         let idx = 0;
         let active = false;
         let armed = false;     // 옆으로 밀어서 고정 준비됨
+        let pushDir = 1;       // 고정하려고 밀어야 하는 방향 (왼쪽 홀드 → 오른쪽 +1, 오른쪽 홀드 → 왼쪽 -1)
         let kept = [];
 
         let locked = false;    // 배속 고정 상태
@@ -1117,7 +1117,8 @@
             video.addEventListener('ratechange', guard);
             document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
 
-            place(video);
+            const vr = place(video);
+            pushDir = start.x > vr.left + vr.width / 2 ? -1 : 1;
             setRing(0);
             baseY = lastY;
             startIdx = wasLocked ? lockIdx : SPEED_START;
@@ -1209,7 +1210,7 @@
             lastY = p.clientY;
             if (!active) return;
             select(indexAt(p.clientY));
-            const f = Math.abs(p.clientX - start.x) / SPEED_LOCK_DX;
+            const f = Math.max(0, (p.clientX - start.x) * pushDir) / SPEED_LOCK_DX;
             setRing(f);
             setArmed(f >= 1);
         }, { capture: true, passive: true });
