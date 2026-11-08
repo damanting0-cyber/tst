@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.1.3
+// @version      1.2.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -39,8 +39,14 @@
         'ytm-comment-thread-renderer', 'ytm-comment-renderer', 'ytm-comments-entry-point-header-renderer',
         'ytd-comment-thread-renderer', 'ytd-comments', 'ytm-engagement-panel', 'ytd-engagement-panel-section-list-renderer',
         'ytm-engagement-panel-section-list-renderer', 'ytm-expandable-video-description-body-renderer',
-        'ytd-text-inline-expander'
+        'ytd-text-inline-expander', '#player-container-id', 'ytm-player', '#movie_player'
     ].join(',');
+
+    // 플레이어 홀드 배속
+    const PLAYER_SEL = ['#player-container-id', '#player-container-outer', 'ytm-player', '#movie_player'];
+    const SPEEDS = [2, 3, 4];
+    const SPEED_HOLD_MS = 450;
+    const SPEED_STEP = 56;            // 손가락을 이만큼(px) 옆으로 옮기면 한 칸 이동
 
     // Material Icons (Apache 2.0) — 유튜브 앱과 같은 계열의 아이콘
     const ICON = {
@@ -374,6 +380,39 @@
         }
 
         /* ---- 스낵바 (유튜브 알림 + 실행 취소) ---- */
+        /* ---- 홀드 배속: 영상만 깔끔하게 남기기 ---- */
+        html.uper-speed .uper-speed-root :not(.uper-keep) {
+            opacity: 0 !important; visibility: hidden !important; transition: none !important;
+        }
+        html.uper-speed .uper-keep::before, html.uper-speed .uper-keep::after { opacity: 0 !important; }
+
+        /* ---- 홀드 배속 선택 박스 ---- */
+        #uper-speed {
+            position: fixed; z-index: 2147483645; left: 0; top: 0;
+            display: flex; padding: 4px; border-radius: 999px;
+            background: rgba(0,0,0,.55);
+            -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+            font: 500 14px/1 var(--uper-font); color: #fff;
+            pointer-events: none; user-select: none; -webkit-user-select: none;
+            opacity: 0; transform: translate(-50%, -6px) scale(.92);
+            transition: opacity .15s linear, transform .2s var(--uper-ease-out);
+        }
+        #uper-speed.open {
+            opacity: 1; transform: translate(-50%, 0) scale(1);
+            transition: opacity .2s linear, transform .3s var(--uper-ease);
+        }
+        #uper-speed .hl {
+            position: absolute; top: 4px; left: 4px; width: 52px; height: 32px;
+            border-radius: 999px; background: #fff;
+            transition: transform .32s cubic-bezier(.2, .9, .3, 1.15);
+        }
+        #uper-speed .seg {
+            position: relative; width: 52px; height: 32px;
+            display: flex; align-items: center; justify-content: center; gap: 2px;
+            transition: color .2s;
+        }
+        #uper-speed .seg.on { color: #0f0f0f; }
+
         #uper-snack {
             position: fixed; left: 12px; right: 12px; bottom: 16px; z-index: 2147483647;
             max-width: 480px; margin: 0 auto; box-sizing: border-box;
@@ -885,6 +924,142 @@
         });
     }
 
+    /* ---------- 플레이어 홀드 배속 (2× / 3× / 4×, 좌우로 밀어 선택) ---------- */
+    function playerRoot(t) {
+        if (!t || !t.closest) return null;
+        for (const s of PLAYER_SEL) {
+            const el = t.closest(s);
+            if (el) return el;
+        }
+        return null;
+    }
+
+    function bindSpeedHold() {
+        const box = h('div', { id: 'uper-speed', 'aria-hidden': 'true' });
+        const hl = h('div', { class: 'hl' });
+        box.appendChild(hl);
+        const segs = SPEEDS.map((s) => {
+            const seg = h('div', { class: 'seg', text: s + '×' });
+            box.appendChild(seg);
+            return seg;
+        });
+        document.body.appendChild(box);
+
+        let timer = null;
+        let start = null;      // 터치 시작 지점
+        let baseX = 0;         // 배속이 켜진 순간의 손가락 x
+        let root = null;
+        let video = null;
+        let origRate = 1;
+        let idx = 0;
+        let active = false;
+        let kept = [];
+
+        const guard = () => {
+            if (active && video && video.playbackRate !== SPEEDS[idx]) video.playbackRate = SPEEDS[idx];
+        };
+        const blockMove = (e) => { if (active && e.cancelable) e.preventDefault(); };
+        const blockMenu = (e) => { if (active) e.preventDefault(); };
+
+        function select(i) {
+            if (i === idx) return;
+            const changed = idx >= 0;
+            idx = i;
+            hl.style.transform = `translateX(${i * 52}px)`;
+            segs.forEach((s, k) => s.classList.toggle('on', k === i));
+            if (video) video.playbackRate = SPEEDS[i];
+            if (changed && navigator.vibrate) navigator.vibrate(8);
+        }
+
+        function markKeep() {
+            kept = [];
+            let n = video;
+            while (n && n !== root) { n.classList.add('uper-keep'); kept.push(n); n = n.parentElement; }
+            root.classList.add('uper-speed-root');
+        }
+
+        function begin() {
+            timer = null;
+            if (!root || !root.isConnected || !video) return;
+            active = true;
+            baseX = start.x;
+            markKeep();
+            document.documentElement.classList.add('uper-speed');
+            video.addEventListener('ratechange', guard);
+            document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
+
+            // 선택 박스는 영상 위쪽 가운데
+            const r = video.getBoundingClientRect();
+            box.style.left = (r.left + r.width / 2) + 'px';
+            box.style.top = Math.max(r.top, 0) + 12 + 'px';
+            hl.style.transition = 'none';
+            idx = -1;
+            select(0);
+            void hl.offsetWidth;
+            hl.style.transition = '';
+            box.classList.add('open');
+            if (navigator.vibrate) navigator.vibrate(15);
+        }
+
+        function finish() {
+            clearTimeout(timer);
+            timer = null;
+            if (!active) return;
+            active = false;
+            video.removeEventListener('ratechange', guard);
+            document.removeEventListener('touchmove', blockMove, { capture: true });
+            const v = video;
+            const rate = origRate;
+            v.playbackRate = rate;
+            setTimeout(() => { if (!active) v.playbackRate = rate; }, 60);   // 유튜브가 되돌리는 값보다 나중에 한 번 더
+            document.documentElement.classList.remove('uper-speed');
+            kept.forEach((n) => n.classList.remove('uper-keep'));
+            if (root) root.classList.remove('uper-speed-root');
+            kept = [];
+            box.classList.remove('open');
+        }
+
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) { finish(); return; }
+            const t = e.target;
+            if (isOurs(t)) return;
+            const r0 = playerRoot(t);
+            const v = r0 && r0.querySelector('video');
+            if (!v) return;
+            const p = e.touches[0];
+            const vr = v.getBoundingClientRect();
+            if (p.clientY < vr.top || p.clientY > vr.bottom) return;
+
+            root = r0;
+            video = v;
+            origRate = v.playbackRate || 1;
+            start = { x: p.clientX, y: p.clientY };
+            clearTimeout(timer);
+            timer = setTimeout(begin, SPEED_HOLD_MS);
+        }, { capture: true, passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+            const p = e.touches[0];
+            if (!p || !start) return;
+            if (timer) {
+                if (Math.hypot(p.clientX - start.x, p.clientY - start.y) > MOVE_LIMIT) {
+                    clearTimeout(timer);
+                    timer = null;
+                }
+                return;
+            }
+            if (!active) return;
+            const i = Math.max(0, Math.min(SPEEDS.length - 1, Math.round((p.clientX - baseX) / SPEED_STEP)));
+            select(i);
+        }, { capture: true, passive: true });
+
+        ['touchend', 'touchcancel'].forEach((type) => {
+            document.addEventListener(type, () => finish(), { capture: true, passive: true });
+        });
+        document.addEventListener('contextmenu', blockMenu, true);
+        document.addEventListener('visibilitychange', () => { if (document.hidden) finish(); });
+    }
+
     /* ---------- 실행 ---------- */
     try {
         injectStyle();
@@ -892,6 +1067,7 @@
         bindPopup();
         bindJar();
         bindHold();
+        bindSpeedHold();
         renderList();
         syncTheme();
         updateLayout();
