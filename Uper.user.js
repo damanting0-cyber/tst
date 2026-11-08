@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.1.0
+// @version      1.1.1
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -34,6 +34,15 @@
         'ytd-rich-item-renderer', 'ytd-video-renderer',
         'ytd-compact-video-renderer', 'yt-lockup-view-model'
     ].join(',');
+    // 롱프레스 대상에서 빼는 영역 (댓글, 설명란, 패널)
+    const SKIP_SEL = [
+        'ytm-comment-thread-renderer', 'ytm-comment-renderer', 'ytm-comments-entry-point-header-renderer',
+        'ytd-comment-thread-renderer', 'ytd-comments', 'ytm-engagement-panel', 'ytd-engagement-panel-section-list-renderer',
+        'ytm-engagement-panel-section-list-renderer', 'ytm-expandable-video-description-body-renderer',
+        'ytd-text-inline-expander'
+    ].join(',');
+    // 이게 화면에 열려 있으면 유리통 버튼을 숨김 (댓글/설명 패널을 가리지 않도록)
+    const PANEL_SEL = 'ytm-engagement-panel, ytm-engagement-panel-section-list-renderer, bottom-sheet-container, ytm-bottom-sheet-renderer';
 
     // Material Icons (Apache 2.0) — 유튜브 앱과 같은 계열의 아이콘
     const ICON = {
@@ -260,6 +269,7 @@
             transition: bottom .3s var(--uper-ease), transform .2s var(--uper-ease), opacity .2s;
         }
         #uper-jar:active { transform: scale(.9); }
+        #uper-jar.away { opacity: 0; transform: scale(.6); pointer-events: none; }
         #uper-jar.pop { animation: uper-pop .45s var(--uper-ease); }
         #uper-jar .fill {
             transform-box: fill-box; transform-origin: center bottom;
@@ -454,11 +464,29 @@
         return (r.height > 0 && r.bottom >= innerHeight - 4) ? r.height : 0;
     }
 
+    function panelOpen() {
+        for (const el of document.querySelectorAll(PANEL_SEL)) {
+            const r = el.getBoundingClientRect();
+            if (r.height > 40 && r.top < innerHeight - 40 && r.bottom > 0) return true;
+        }
+        return false;
+    }
+
+    let lastBottom = '';
+    let lastHidden = null;
     function updateLayout() {
         const b = navHeight() + 16;
-        jar.style.bottom = b + 'px';
+        const bottom = b + 'px';
+        if (bottom !== lastBottom) {
+            lastBottom = bottom;
+            jar.style.bottom = bottom;
+        }
         snack.style.bottom = (sheetOpen ? 16 : b + 60) + 'px';
-        syncTheme();
+        const hidden = !sheetOpen && panelOpen();
+        if (hidden !== lastHidden) {
+            lastHidden = hidden;
+            jar.classList.toggle('away', hidden);
+        }
     }
 
     /* ---------- UI 생성 ---------- */
@@ -584,13 +612,21 @@
         return popup.contains(t) || jar.contains(t) || sheet.contains(t) || scrim.contains(t) || snack.contains(t);
     }
 
+    // 댓글·설명·패널 안의 링크(타임스탬프 등)는 건드리지 않고, 섬네일 있는 영상 카드만 대상으로 함
+    function videoLink(t) {
+        const link = t && t.closest ? t.closest(LINK_SEL) : null;
+        if (!link || link.closest(SKIP_SEL)) return null;
+        if (findCard(link) === link && !link.querySelector('img')) return null;
+        return link;
+    }
+
     function bindHold() {
         document.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) return;
             const t = e.target;
             if (isOurs(t)) return;
 
-            const link = t.closest ? t.closest(LINK_SEL) : null;
+            const link = videoLink(t);
             if (!link) return;
             const info = getInfo(link);
             if (!info) return;
@@ -607,7 +643,7 @@
                 if (navigator.vibrate) navigator.vibrate(15);
                 showPopup(findThumb(link), info);
             }, HOLD_MS);
-        }, { capture: true, passive: false });
+        }, { capture: true, passive: true });   // 막는 일이 없으므로 passive: 스크롤·터치 반응 지연 없음
 
         document.addEventListener('touchmove', (e) => {
             if (!holdTimer || !holdStart) return;
@@ -630,23 +666,24 @@
         });
 
         document.addEventListener('click', (e) => {
-            if (justHeld) {
+            if (justHeld && videoLink(e.target)) {
                 e.preventDefault();
                 e.stopPropagation();
                 justHeld = false;
                 return;
             }
             if (!popupOpen || popup.contains(e.target)) return;
-            // 유리통을 누르면 팝업을 닫고 시트는 그대로 열림
-            if (jar.contains(e.target)) { hidePopup(); return; }
-            // 그 밖을 탭하면 팝업만 닫고 링크 이동은 막음
-            e.preventDefault();
-            e.stopPropagation();
             hidePopup();
+            // 팝업 닫으려고 다른 영상을 탭한 경우에만 이동을 막음.
+            // 버튼(답글 더보기, 댓글 열기 등)은 그대로 동작하게 둠
+            if (videoLink(e.target)) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
         }, true);
 
         document.addEventListener('contextmenu', (e) => {
-            if (e.target.closest && e.target.closest(LINK_SEL)) e.preventDefault();
+            if (videoLink(e.target)) e.preventDefault();
         }, true);
     }
 
@@ -873,9 +910,18 @@
         bindJar();
         bindHold();
         renderList();
+        syncTheme();
         updateLayout();
-        setInterval(updateLayout, 400);
-        window.addEventListener('yt-navigate-finish', () => { closeSheet(); updateLayout(); });
+        setInterval(updateLayout, 500);
+        // 테마는 바뀔 때만 다시 계산
+        new MutationObserver(syncTheme).observe(document.documentElement, {
+            attributes: true, attributeFilter: ['dark', 'darker-dark-theme', 'style']
+        });
+        if (window.matchMedia) {
+            const mq = matchMedia('(prefers-color-scheme: dark)');
+            if (mq.addEventListener) mq.addEventListener('change', syncTheme);
+        }
+        window.addEventListener('yt-navigate-finish', () => { closeSheet(); syncTheme(); updateLayout(); });
     } catch (err) {
         showError('Uper 오류: ' + err.message);
     }
