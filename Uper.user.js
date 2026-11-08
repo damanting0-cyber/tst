@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.5.0
+// @version      1.5.1
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -409,7 +409,19 @@
                 height .4s var(--uper-ease), border-radius .4s var(--uper-ease), visibility 0s;
         }
         #uper-speed.compact { height: 28px; border-radius: 14px; pointer-events: auto; }
-        #uper-speed.open.compact { transform: scale(.9); }
+        #uper-speed.open.compact { transform: scale(.9); opacity: .6; }
+        /* 옆으로 밀 때 고정까지 남은 정도를 테두리로 표시 */
+        #uper-speed .ring {
+            position: absolute; left: 0; top: 0; width: 46px; height: 76px;
+            pointer-events: none; overflow: visible;
+        }
+        #uper-speed .ring rect {
+            fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round;
+            stroke-dasharray: 100 100; stroke-dashoffset: 100;
+            transition: stroke-dashoffset .08s linear, stroke .2s, opacity .2s;
+        }
+        #uper-speed.lock .ring rect { stroke: var(--uper-red); }
+        #uper-speed.compact .ring { opacity: 0; }
         #uper-speed .track { position: relative; transition: transform .4s var(--uper-ease); }
         #uper-speed .hl {
             position: absolute; top: 0; left: 0; width: 42px; height: 24px;
@@ -969,7 +981,14 @@
             track.appendChild(seg);
         }
         box.appendChild(track);
+        const ringRect = svgEl('rect', { x: '1', y: '1', width: '44', height: '74', rx: '13', pathLength: '100' });
+        box.appendChild(svgEl('svg', { class: 'ring', viewBox: '0 0 46 76', 'aria-hidden': 'true' }, ringRect));
         document.body.appendChild(box);
+
+        // 0~1: 테두리가 박스를 감싸는 정도
+        function setRing(f) {
+            ringRect.style.strokeDashoffset = String(100 - Math.max(0, Math.min(1, f)) * 100);
+        }
 
         let timer = null;
         let start = null;      // 터치 시작 지점
@@ -1099,6 +1118,7 @@
             document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
 
             place(video);
+            setRing(0);
             baseY = lastY;
             startIdx = wasLocked ? lockIdx : SPEED_START;
             idx = startIdx;
@@ -1153,6 +1173,7 @@
                 setTimeout(() => { if (!active && !locked) box.classList.remove('compact'); }, 250);
             }
             armed = false;
+            setRing(0);
         }
 
         document.addEventListener('touchstart', (e) => {
@@ -1188,7 +1209,9 @@
             lastY = p.clientY;
             if (!active) return;
             select(indexAt(p.clientY));
-            setArmed(Math.abs(p.clientX - start.x) > SPEED_LOCK_DX);
+            const f = Math.abs(p.clientX - start.x) / SPEED_LOCK_DX;
+            setRing(f);
+            setArmed(f >= 1);
         }, { capture: true, passive: true });
 
         ['touchend', 'touchcancel'].forEach((type) => {
