@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.9.0
+// @version      1.9.1
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -402,7 +402,7 @@
             position: relative; flex: 1; box-sizing: border-box;
             background: rgba(255,255,255,0); transition: background-color .2s;
         }
-        #uper-zones > div + div { border-left: 1px dashed rgba(255,255,255,.5); }
+        #uper-zones > div + div { border-left: 1px dashed rgba(255,255,255,.25); }
         #uper-zones > div.on { background: rgba(255,255,255,.12); }
         #uper-zones span {
             position: absolute; left: 0; right: 0; top: var(--ly, 0px); text-align: center;
@@ -413,7 +413,7 @@
         /* ---- 여기까지 내리면 고정 ---- */
         #uper-lockline {
             position: fixed; left: 0; width: 100vw; top: 0; height: 0; z-index: 2147483644;
-            border-top: 2px dashed rgba(255,255,255,.55);
+            border-top: 2px dashed rgba(255,255,255,.85);
             pointer-events: none; opacity: 0; visibility: hidden;
             transition: opacity .2s linear, visibility 0s .2s, border-color .2s;
         }
@@ -1072,14 +1072,13 @@
         // 전체화면에서는 전체화면 요소 안에 있어야 보이므로 그쪽으로 옮김
         // 홀드 중 화면을 3등분한 영역을 보여 줌 (지금 손가락이 있는 칸은 밝게)
         const zones = h('div', { id: 'uper-zones', 'aria-hidden': 'true' });
-        const zoneEls = SPEEDS.map((sp) => {
-            const z = h('div', {}, h('span', { text: sp + '×' }));
+        const zoneEls = SPEEDS.map(() => {
+            const z = h('div');
             zones.appendChild(z);
             return z;
         });
         document.body.insertBefore(zones, box);
-        const lockLabel = h('span', { text: '↓ 여기까지 내리면 고정' });
-        const lockLine = h('div', { id: 'uper-lockline', 'aria-hidden': 'true' }, lockLabel);
+        const lockLine = h('div', { id: 'uper-lockline', 'aria-hidden': 'true' });
         document.body.insertBefore(lockLine, box);
         let zoneTop = 0;
 
@@ -1094,8 +1093,6 @@
         function moveGuides(x, y) {
             zones.style.setProperty('--mx', x + 'px');
             zones.style.setProperty('--my', (y - zoneTop) + 'px');
-            zones.style.setProperty('--ly', Math.max(8, y - zoneTop - 46) + 'px');
-            lockLabel.style.left = Math.min(Math.max(x, 80), innerWidth - 80) + 'px';
         }
 
         function mountBox() {
@@ -1201,7 +1198,6 @@
             armed = on;
             box.classList.toggle('lock', on);
             lockLine.classList.toggle('lock', on);
-            lockLabel.textContent = on ? '손을 떼면 고정' : '↓ 여기까지 내리면 고정';
             if (navigator.vibrate) navigator.vibrate(on ? 20 : 8);
         }
 
