@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.5.3
+// @version      1.6.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -383,7 +383,7 @@
 
         /* ---- 스낵바 (유튜브 알림 + 실행 취소) ---- */
         /* ---- 홀드 배속: 영상만 깔끔하게 남기기 ---- */
-        html.uper-speed .uper-speed-root :not(.uper-keep) {
+        html.uper-speed .uper-speed-root :not(.uper-keep, #uper-speed, #uper-speed *) {
             opacity: 0 !important; visibility: hidden !important; transition: none !important;
         }
         html.uper-speed .uper-keep::before, html.uper-speed .uper-keep::after { opacity: 0 !important; }
@@ -995,6 +995,20 @@
         hl.appendChild(svgEl('svg', { class: 'ring', viewBox: '0 0 42 24', 'aria-hidden': 'true' }, ringRect));
         document.body.appendChild(box);
 
+        // 전체화면에서는 전체화면 요소 안에 있어야 보이므로 그쪽으로 옮김
+        function mountBox() {
+            const fs = document.fullscreenElement || document.webkitFullscreenElement;
+            const host = fs && fs.tagName !== 'VIDEO' ? fs : document.body;
+            if (box.parentNode !== host) host.appendChild(box);
+        }
+        ['fullscreenchange', 'webkitfullscreenchange'].forEach((type) => {
+            document.addEventListener(type, () => {
+                mountBox();
+                if (locked && !active) setTimeout(placeCompact, 300);   // 화면 회전·크기 변화가 끝난 뒤 위치 다시 계산
+            });
+        });
+        window.addEventListener('resize', () => { if (locked && !active) placeCompact(); });
+
         // 0~1: 테두리가 박스를 감싸는 정도
         function setRing(f) {
             ringRect.style.strokeDashoffset = String(100 - Math.max(0, Math.min(1, f)) * 100);
@@ -1085,6 +1099,7 @@
             if (!locked || active) return;
             const v = lockVideo && lockVideo.isConnected ? lockVideo : null;
             if (!v) { box.classList.remove('open'); return; }
+            mountBox();
             const r = place(v);
             box.classList.toggle('open', r.bottom > 44 && r.height > 40);
         }
@@ -1128,6 +1143,7 @@
             video.addEventListener('ratechange', guard);
             document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
 
+            mountBox();
             const vr = place(video);
             pushDir = start.x > vr.left + vr.width / 2 ? -1 : 1;
             setRing(0);
