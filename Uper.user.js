@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.5.2
+// @version      1.5.3
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -420,7 +420,18 @@
             stroke-dasharray: 100 100; stroke-dashoffset: 100;
             transition: stroke-dashoffset .08s linear, opacity .2s;
         }
-        #uper-speed.compact .ring { opacity: 0; }
+        #uper-speed.compact .ring { opacity: 0; transition: opacity .45s var(--uper-ease); }
+
+        /* 고정되며 접힐 때: 빨간 칸이 접히는 움직임과 같은 속도로 서서히 투명해짐 */
+        #uper-speed.open.compact {
+            transition: opacity .45s var(--uper-ease), transform .45s var(--uper-ease),
+                height .45s var(--uper-ease), border-radius .45s var(--uper-ease), visibility 0s;
+        }
+        #uper-speed.compact .track { transition: transform .45s var(--uper-ease); }
+        #uper-speed.compact .hl {
+            transition: transform .45s var(--uper-ease), background-color .45s var(--uper-ease);
+        }
+        #uper-speed.compact .seg { transition: color .45s var(--uper-ease), opacity .45s; }
         #uper-speed .track { position: relative; transition: transform .4s var(--uper-ease); }
         #uper-speed .hl {
             position: absolute; top: 0; left: 0; width: 42px; height: 24px;
@@ -1174,7 +1185,7 @@
                 setTimeout(() => { if (!active && !locked) box.classList.remove('compact'); }, 250);
             }
             armed = false;
-            setRing(0);
+            setTimeout(() => { if (!active) setRing(0); }, 500);
         }
 
         document.addEventListener('touchstart', (e) => {
