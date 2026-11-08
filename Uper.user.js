@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.8.3
+// @version      1.9.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -383,27 +383,49 @@
 
         /* ---- 스낵바 (유튜브 알림 + 실행 취소) ---- */
         /* ---- 홀드 배속: 영상만 깔끔하게 남기기 ---- */
-        html.uper-speed .uper-speed-root :not(.uper-keep, #uper-speed, #uper-speed *, #uper-zones, #uper-zones *) {
+        html.uper-speed .uper-speed-root :not(.uper-keep, #uper-speed, #uper-speed *, #uper-zones, #uper-zones *, #uper-lockline, #uper-lockline *) {
             opacity: 0 !important; visibility: hidden !important; transition: none !important;
         }
         html.uper-speed .uper-keep::before, html.uper-speed .uper-keep::after { opacity: 0 !important; }
 
-        /* ---- 홀드 중 화면 3등분 영역 표시 ---- */
+        /* ---- 홀드 중 화면 3등분 영역 표시 (영상 위에만, 손가락 가까이일수록 잘 보임) ---- */
         #uper-zones {
-            position: fixed; inset: 0; z-index: 2147483644; display: flex;
-            pointer-events: none; opacity: 0; visibility: hidden;
+            position: fixed; left: 0; top: 0; width: 100vw; height: 0; z-index: 2147483644;
+            display: flex; pointer-events: none; opacity: 0; visibility: hidden;
+            --mx: 50%; --my: 50%;
+            -webkit-mask-image: radial-gradient(circle 190px at var(--mx) var(--my), #000 0%, rgba(0,0,0,.55) 45%, transparent 100%);
+            mask-image: radial-gradient(circle 190px at var(--mx) var(--my), #000 0%, rgba(0,0,0,.55) 45%, transparent 100%);
             transition: opacity .2s linear, visibility 0s .2s;
         }
         #uper-zones.open { opacity: 1; visibility: visible; transition: opacity .2s linear, visibility 0s; }
         #uper-zones > div {
-            flex: 1; display: flex; align-items: flex-end; justify-content: center;
-            padding-bottom: 24px; box-sizing: border-box;
-            font: 500 13px/1 var(--uper-font); color: rgba(255,255,255,.45);
-            background: rgba(255,255,255,0);
-            transition: background-color .2s, color .2s;
+            position: relative; flex: 1; box-sizing: border-box;
+            background: rgba(255,255,255,0); transition: background-color .2s;
         }
-        #uper-zones > div + div { border-left: 1px dashed rgba(255,255,255,.28); }
-        #uper-zones > div.on { background: rgba(255,255,255,.1); color: rgba(255,255,255,.9); }
+        #uper-zones > div + div { border-left: 1px dashed rgba(255,255,255,.5); }
+        #uper-zones > div.on { background: rgba(255,255,255,.12); }
+        #uper-zones span {
+            position: absolute; left: 0; right: 0; top: var(--ly, 0px); text-align: center;
+            font: 500 13px/1 var(--uper-font); color: rgba(255,255,255,.55); transition: color .2s;
+        }
+        #uper-zones > div.on span { color: #fff; }
+
+        /* ---- 여기까지 내리면 고정 ---- */
+        #uper-lockline {
+            position: fixed; left: 0; width: 100vw; top: 0; height: 0; z-index: 2147483644;
+            border-top: 2px dashed rgba(255,255,255,.55);
+            pointer-events: none; opacity: 0; visibility: hidden;
+            transition: opacity .2s linear, visibility 0s .2s, border-color .2s;
+        }
+        #uper-lockline.open { opacity: 1; visibility: visible; transition: opacity .2s linear, visibility 0s, border-color .2s; }
+        #uper-lockline span {
+            position: absolute; top: 6px; transform: translateX(-50%);
+            padding: 3px 8px; border-radius: 999px; background: rgba(0,0,0,.55);
+            font: 500 11px/1 var(--uper-font); color: #fff; white-space: nowrap;
+            transition: background-color .2s;
+        }
+        #uper-lockline.lock { border-top-style: solid; border-color: var(--uper-red); }
+        #uper-lockline.lock span { background: var(--uper-red); }
 
         /* ---- 홀드 배속 플로팅 (영상 위쪽 가운데, 가로 3칸 ↔ 고정 시 현재 배속 1칸) ---- */
         #uper-speed {
@@ -1051,17 +1073,37 @@
         // 홀드 중 화면을 3등분한 영역을 보여 줌 (지금 손가락이 있는 칸은 밝게)
         const zones = h('div', { id: 'uper-zones', 'aria-hidden': 'true' });
         const zoneEls = SPEEDS.map((sp) => {
-            const z = h('div', { text: sp + '×' });
+            const z = h('div', {}, h('span', { text: sp + '×' }));
             zones.appendChild(z);
             return z;
         });
         document.body.insertBefore(zones, box);
+        const lockLabel = h('span', { text: '↓ 여기까지 내리면 고정' });
+        const lockLine = h('div', { id: 'uper-lockline', 'aria-hidden': 'true' }, lockLabel);
+        document.body.insertBefore(lockLine, box);
+        let zoneTop = 0;
+
+        // 영역은 영상 높이만큼만, 고정선은 홀드한 지점에서 일정 거리 아래
+        function layoutGuides(vr) {
+            zoneTop = Math.max(vr.top, 0);
+            zones.style.top = zoneTop + 'px';
+            zones.style.height = Math.max(0, Math.min(vr.bottom, innerHeight) - zoneTop) + 'px';
+            lockLine.style.top = (start.y + SPEED_LOCK_DY) + 'px';
+            moveGuides(start.x, start.y);
+        }
+        function moveGuides(x, y) {
+            zones.style.setProperty('--mx', x + 'px');
+            zones.style.setProperty('--my', (y - zoneTop) + 'px');
+            zones.style.setProperty('--ly', Math.max(8, y - zoneTop - 46) + 'px');
+            lockLabel.style.left = Math.min(Math.max(x, 80), innerWidth - 80) + 'px';
+        }
 
         function mountBox() {
             const fs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
             const host = fs && fs.tagName !== 'VIDEO' ? fs : document.body;
             if (box.parentNode !== host) host.appendChild(box);
             if (zones.parentNode !== host) host.insertBefore(zones, box);
+            if (lockLine.parentNode !== host) host.insertBefore(lockLine, box);
         }
         ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange'].forEach((type) => {
             document.addEventListener(type, () => {
@@ -1158,6 +1200,8 @@
             if (on === armed) return;
             armed = on;
             box.classList.toggle('lock', on);
+            lockLine.classList.toggle('lock', on);
+            lockLabel.textContent = on ? '손을 떼면 고정' : '↓ 여기까지 내리면 고정';
             if (navigator.vibrate) navigator.vibrate(on ? 20 : 8);
         }
 
@@ -1233,7 +1277,10 @@
             video.addEventListener('ratechange', guard);
             document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
             swallow = true;
+            layoutGuides(video.getBoundingClientRect());
             zones.classList.add('open');
+            lockLine.classList.remove('lock');
+            lockLine.classList.add('open');
             cancelNative(start.t);
 
             mountBox();
@@ -1264,6 +1311,7 @@
             clearTimeout(swallowTimer);
             swallowTimer = setTimeout(() => { swallow = false; }, 400);   // 뒤따라오는 click까지 막음
             zones.classList.remove('open');
+            lockLine.classList.remove('open');
             const v = video;
             v.removeEventListener('ratechange', guard);
             if (!shortsGuard) document.removeEventListener('touchmove', blockMove, { capture: true });
@@ -1338,6 +1386,7 @@
             lastX = p.clientX;
             if (!active) return;
             select(indexAt(p.clientX));
+            moveGuides(p.clientX, p.clientY);
             const f = Math.max(0, p.clientY - start.y) / SPEED_LOCK_DY;
             setRing(f);
             setArmed(f >= 1);
