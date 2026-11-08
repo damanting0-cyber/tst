@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.3.0
+// @version      1.4.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -47,6 +47,7 @@
     const SPEEDS = [1.5, 2, 3];
     const SPEED_START = 1;            // 홀드 시작은 2×
     const SPEED_STEP = 44;            // 손가락을 이만큼(px) 옆으로 옮기면 한 칸 이동
+    const SPEED_LOCK_DY = 70;         // 홀드한 채 이만큼(px) 아래로 끌면 배속 고정
     const SPEED_HOLD_MS = 450;
 
     // Material Icons (Apache 2.0) — 유튜브 앱과 같은 계열의 아이콘
@@ -413,6 +414,26 @@
             transition: color .2s;
         }
         #uper-speed .seg.on { color: #0f0f0f; }
+        #uper-speed.lock .hl { background: var(--uper-red); }
+        #uper-speed.lock .seg.on { color: #fff; }
+
+        /* ---- 배속 고정 배지 (현재 배속만 작게) ---- */
+        #uper-speed-badge {
+            position: fixed; z-index: 2147483644; left: 0; top: 0;
+            padding: 5px 9px; border-radius: 999px;
+            background: rgba(0,0,0,.55);
+            -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+            font: 500 12px/1 var(--uper-font); color: #fff;
+            user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+            opacity: 0; visibility: hidden; pointer-events: none;
+            transform: translate(-50%, -4px) scale(.9);
+            transition: opacity .15s linear, transform .2s var(--uper-ease-out), visibility 0s .2s;
+        }
+        #uper-speed-badge.open {
+            opacity: 1; visibility: visible; pointer-events: auto;
+            transform: translate(-50%, 0) scale(1);
+            transition: opacity .2s linear, transform .3s var(--uper-ease), visibility 0s;
+        }
 
         #uper-snack {
             position: fixed; left: 12px; right: 12px; bottom: 16px; z-index: 2147483647;
@@ -948,7 +969,9 @@
             box.appendChild(seg);
             return seg;
         });
+        const badge = h('div', { id: 'uper-speed-badge', role: 'button', 'aria-label': '배속 고정 해제' });
         document.body.appendChild(box);
+        document.body.appendChild(badge);
 
         let timer = null;
         let start = null;      // 터치 시작 지점
@@ -959,13 +982,31 @@
         let origRate = 1;
         let idx = 0;
         let active = false;
+        let armed = false;     // 아래로 끌어서 고정 준비됨
         let kept = [];
 
-        const guard = () => {
-            if (active && video && video.playbackRate !== SPEEDS[idx]) video.playbackRate = SPEEDS[idx];
+        let locked = false;    // 배속 고정 상태
+        let lockRate = 2;
+        let lockVideo = null;
+        let baseRate = 1;      // 고정 전 원래 배속
+        let unlocking = false; // 고정 중 다시 홀드해서 푸는 중
+
+        const want = () => (active ? SPEEDS[idx] : locked ? lockRate : null);
+        const guard = (e) => {
+            const r = want();
+            const v = e ? e.target : video;
+            if (r != null && v && v.playbackRate !== r) v.playbackRate = r;
         };
         const blockMove = (e) => { if (active && e.cancelable) e.preventDefault(); };
-        const blockMenu = (e) => { if (active) e.preventDefault(); };
+        const blockMenu = (e) => { if (active || unlocking) e.preventDefault(); };
+
+        // 유튜브가 홀드를 끝내며 배속을 되돌리는 것보다 나중에 한 번 더 맞춤
+        function settle(v, rate) {
+            v.playbackRate = rate;
+            [60, 300].forEach((ms) => setTimeout(() => {
+                if (!active && v.playbackRate !== rate) v.playbackRate = rate;
+            }, ms));
+        }
 
         function select(i) {
             if (i === idx) return;
@@ -983,6 +1024,13 @@
             return Math.max(0, Math.min(SPEEDS.length - 1, i));
         }
 
+        function setArmed(on) {
+            if (on === armed) return;
+            armed = on;
+            box.classList.toggle('lock', on);
+            if (navigator.vibrate) navigator.vibrate(on ? 20 : 8);
+        }
+
         function markKeep() {
             kept = [];
             let n = video;
@@ -990,10 +1038,71 @@
             root.classList.add('uper-speed-root');
         }
 
+        /* --- 고정 배지 --- */
+        function placeBadge() {
+            if (!locked) { badge.classList.remove('open'); return; }
+            const v = lockVideo && lockVideo.isConnected ? lockVideo : null;
+            if (!v) { badge.classList.remove('open'); return; }
+            const r = v.getBoundingClientRect();
+            if (r.bottom < 40 || r.height < 40) { badge.classList.remove('open'); return; }
+            badge.style.left = (r.left + r.width / 2) + 'px';
+            badge.style.top = Math.max(r.top, 0) + 6 + 'px';
+            badge.classList.add('open');
+        }
+
+        function lock(v, rate) {
+            locked = true;
+            lockRate = rate;
+            lockVideo = v;
+            baseRate = origRate;
+            v.addEventListener('ratechange', guard);
+            badge.textContent = rate + '×';
+            settle(v, rate);
+            placeBadge();
+        }
+
+        function unlock() {
+            if (!locked) return;
+            locked = false;
+            const v = lockVideo;
+            lockVideo = null;
+            if (v) {
+                v.removeEventListener('ratechange', guard);
+                settle(v, baseRate);
+            }
+            badge.classList.remove('open');
+            if (navigator.vibrate) navigator.vibrate(15);
+        }
+
+        bindTap(badge, unlock);
+        window.addEventListener('scroll', placeBadge, { passive: true });
+        setInterval(() => {
+            if (!locked) return;
+            // 같은 페이지에서 영상 요소가 바뀌어도 고정 배속 유지
+            const v = document.querySelector(PLAYER_SEL.map((s) => s + ' video').join(','));
+            if (v && v !== lockVideo) {
+                if (lockVideo) lockVideo.removeEventListener('ratechange', guard);
+                lockVideo = v;
+                v.addEventListener('ratechange', guard);
+            }
+            if (lockVideo && lockVideo.playbackRate !== lockRate) lockVideo.playbackRate = lockRate;
+            placeBadge();
+        }, 500);
+
         function begin() {
             timer = null;
             if (!root || !root.isConnected || !video) return;
+
+            // 고정 중에 다시 홀드하면 고정을 풀고 원래 배속으로
+            if (locked) {
+                unlocking = true;
+                unlock();
+                return;
+            }
+
             active = true;
+            armed = false;
+            box.classList.remove('lock');
             markKeep();
             document.documentElement.classList.add('uper-speed');
             video.addEventListener('ratechange', guard);
@@ -1016,25 +1125,30 @@
         function finish() {
             clearTimeout(timer);
             timer = null;
+            if (unlocking) {
+                unlocking = false;
+                if (video) settle(video, baseRate);
+                return;
+            }
             if (!active) return;
             active = false;
-            video.removeEventListener('ratechange', guard);
-            document.removeEventListener('touchmove', blockMove, { capture: true });
             const v = video;
-            const rate = origRate;
-            v.playbackRate = rate;
-            setTimeout(() => { if (!active) v.playbackRate = rate; }, 60);   // 유튜브가 되돌리는 값보다 나중에 한 번 더
+            v.removeEventListener('ratechange', guard);
+            document.removeEventListener('touchmove', blockMove, { capture: true });
+            if (armed) lock(v, SPEEDS[idx]);
+            else settle(v, origRate);
+            armed = false;
             document.documentElement.classList.remove('uper-speed');
             kept.forEach((n) => n.classList.remove('uper-keep'));
             if (root) root.classList.remove('uper-speed-root');
             kept = [];
-            box.classList.remove('open');
+            box.classList.remove('open', 'lock');
         }
 
         document.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) { finish(); return; }
             const t = e.target;
-            if (isOurs(t)) return;
+            if (isOurs(t) || badge.contains(t)) return;
             const r0 = playerRoot(t);
             const v = r0 && r0.querySelector('video');
             if (!v) return;
@@ -1044,7 +1158,7 @@
 
             root = r0;
             video = v;
-            origRate = v.playbackRate || 1;
+            origRate = locked ? baseRate : (v.playbackRate || 1);
             start = { x: p.clientX, y: p.clientY };
             lastX = p.clientX;
             clearTimeout(timer);
@@ -1064,13 +1178,14 @@
             lastX = p.clientX;
             if (!active) return;
             select(indexAt(p.clientX));
+            setArmed(p.clientY - start.y > SPEED_LOCK_DY);
         }, { capture: true, passive: true });
 
         ['touchend', 'touchcancel'].forEach((type) => {
             document.addEventListener(type, () => finish(), { capture: true, passive: true });
         });
         document.addEventListener('contextmenu', blockMenu, true);
-        document.addEventListener('visibilitychange', () => { if (document.hidden) finish(); });
+        document.addEventListener('visibilitychange', () => { if (document.hidden && active) { armed = false; finish(); } });
     }
 
     /* ---------- 실행 ---------- */
