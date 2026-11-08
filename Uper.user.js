@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.8.2
+// @version      1.8.3
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -383,10 +383,27 @@
 
         /* ---- 스낵바 (유튜브 알림 + 실행 취소) ---- */
         /* ---- 홀드 배속: 영상만 깔끔하게 남기기 ---- */
-        html.uper-speed .uper-speed-root :not(.uper-keep, #uper-speed, #uper-speed *) {
+        html.uper-speed .uper-speed-root :not(.uper-keep, #uper-speed, #uper-speed *, #uper-zones, #uper-zones *) {
             opacity: 0 !important; visibility: hidden !important; transition: none !important;
         }
         html.uper-speed .uper-keep::before, html.uper-speed .uper-keep::after { opacity: 0 !important; }
+
+        /* ---- 홀드 중 화면 3등분 영역 표시 ---- */
+        #uper-zones {
+            position: fixed; inset: 0; z-index: 2147483644; display: flex;
+            pointer-events: none; opacity: 0; visibility: hidden;
+            transition: opacity .2s linear, visibility 0s .2s;
+        }
+        #uper-zones.open { opacity: 1; visibility: visible; transition: opacity .2s linear, visibility 0s; }
+        #uper-zones > div {
+            flex: 1; display: flex; align-items: flex-end; justify-content: center;
+            padding-bottom: 24px; box-sizing: border-box;
+            font: 500 13px/1 var(--uper-font); color: rgba(255,255,255,.45);
+            background: rgba(255,255,255,0);
+            transition: background-color .2s, color .2s;
+        }
+        #uper-zones > div + div { border-left: 1px dashed rgba(255,255,255,.28); }
+        #uper-zones > div.on { background: rgba(255,255,255,.1); color: rgba(255,255,255,.9); }
 
         /* ---- 홀드 배속 플로팅 (영상 위쪽 가운데, 가로 3칸 ↔ 고정 시 현재 배속 1칸) ---- */
         #uper-speed {
@@ -1031,10 +1048,20 @@
         document.body.appendChild(box);
 
         // 전체화면에서는 전체화면 요소 안에 있어야 보이므로 그쪽으로 옮김
+        // 홀드 중 화면을 3등분한 영역을 보여 줌 (지금 손가락이 있는 칸은 밝게)
+        const zones = h('div', { id: 'uper-zones', 'aria-hidden': 'true' });
+        const zoneEls = SPEEDS.map((sp) => {
+            const z = h('div', { text: sp + '×' });
+            zones.appendChild(z);
+            return z;
+        });
+        document.body.insertBefore(zones, box);
+
         function mountBox() {
             const fs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
             const host = fs && fs.tagName !== 'VIDEO' ? fs : document.body;
             if (box.parentNode !== host) host.appendChild(box);
+            if (zones.parentNode !== host) host.insertBefore(zones, box);
         }
         ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange'].forEach((type) => {
             document.addEventListener(type, () => {
@@ -1107,6 +1134,7 @@
             if (snap) { hl.style.transition = 'none'; track.style.transition = 'none'; }
             hl.style.transform = `translateX(${i * COL}px)`;
             segs.forEach((s, k) => s.classList.toggle('on', k === i));
+            zoneEls.forEach((z, k) => z.classList.toggle('on', k === i));
             track.style.transform = box.classList.contains('compact') ? `translateX(${-i * COL}px)` : '';
             if (snap) { void box.offsetWidth; hl.style.transition = ''; track.style.transition = ''; }
         }
@@ -1205,6 +1233,7 @@
             video.addEventListener('ratechange', guard);
             document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
             swallow = true;
+            zones.classList.add('open');
             cancelNative(start.t);
 
             mountBox();
@@ -1234,6 +1263,7 @@
             active = false;
             clearTimeout(swallowTimer);
             swallowTimer = setTimeout(() => { swallow = false; }, 400);   // 뒤따라오는 click까지 막음
+            zones.classList.remove('open');
             const v = video;
             v.removeEventListener('ratechange', guard);
             if (!shortsGuard) document.removeEventListener('touchmove', blockMove, { capture: true });
