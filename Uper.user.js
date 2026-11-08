@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.9.1
+// @version      1.9.2
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -402,7 +402,7 @@
             position: relative; flex: 1; box-sizing: border-box;
             background: rgba(255,255,255,0); transition: background-color .2s;
         }
-        #uper-zones > div + div { border-left: 1px dashed rgba(255,255,255,.25); }
+        #uper-zones > div + div { border-left: 1px dashed rgba(255,255,255,.5); }
         #uper-zones > div.on { background: rgba(255,255,255,.12); }
         #uper-zones span {
             position: absolute; left: 0; right: 0; top: var(--ly, 0px); text-align: center;
@@ -413,7 +413,7 @@
         /* ---- 여기까지 내리면 고정 ---- */
         #uper-lockline {
             position: fixed; left: 0; width: 100vw; top: 0; height: 0; z-index: 2147483644;
-            border-top: 2px dashed rgba(255,255,255,.85);
+            border-top: 1px dashed rgba(255,255,255,.5);
             pointer-events: none; opacity: 0; visibility: hidden;
             transition: opacity .2s linear, visibility 0s .2s, border-color .2s;
         }
