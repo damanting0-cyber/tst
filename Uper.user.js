@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.8.1
+// @version      1.8.2
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -1119,10 +1119,10 @@
             if (navigator.vibrate) navigator.vibrate(8);
         }
 
-        // 손가락 x와 가장 가까운 칸 (플로팅 바깥이면 양 끝 칸)
+        // 화면 가로를 3등분: 왼쪽 1.5×, 가운데 2×, 오른쪽 3×
         function indexAt(x) {
-            const first = centerX - FULL_W / 2 + 2 + COL / 2;
-            const i = Math.round((x - first) / COL);
+            const w = window.innerWidth || document.documentElement.clientWidth || 1;
+            const i = Math.floor(x / (w / N));
             return Math.max(0, Math.min(N - 1, i));
         }
 
