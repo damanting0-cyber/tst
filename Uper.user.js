@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.8.0
+// @version      1.8.1
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -976,12 +976,23 @@
         // 쇼츠: 손가락 아래에 있는 영상을 품은 가장 가까운 상위 요소
         if (isShorts() && x != null) {
             let n = t;
+            let found = null;
             for (let k = 0; n && n !== document.body && k < 15; k++, n = n.parentElement) {
                 for (const v of n.querySelectorAll('video')) {
                     const r = v.getBoundingClientRect();
-                    if (r.width > 150 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return n;
+                    if (r.width > 150 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) { found = n; break; }
                 }
+                if (found) break;
             }
+            if (!found) return null;
+            // 제목·버튼 같은 영상 정보까지 함께 숨기도록, 화면 한 장 크기를 넘지 않는 데까지 넓힘
+            let best = found;
+            for (let p = found.parentElement, k = 0; p && p !== document.body && k < 8; k++, p = p.parentElement) {
+                const r = p.getBoundingClientRect();
+                if (r.height > innerHeight * 1.05 || r.width > innerWidth * 1.05) break;
+                best = p;
+            }
+            return best;
         }
         return null;
     }
@@ -1040,6 +1051,26 @@
 
         let timer = null;
         let start = null;      // 터치 시작 지점
+        let swallow = false;   // 유튜브로 터치를 넘기지 않는 중
+        let swallowTimer = null;
+        let pointerId = null;
+        document.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'touch') pointerId = e.pointerId;
+        }, { capture: true, passive: true });
+
+        // 유튜브가 진행 중인 길게 누르기를 '취소된 터치'로 알게 함
+        function cancelNative(t) {
+            if (!t || !t.isConnected) return;
+            try {
+                t.dispatchEvent(new TouchEvent('touchcancel', { bubbles: true, cancelable: false, composed: true }));
+            } catch (e) { /* 지원 안 하면 생략 */ }
+            try {
+                t.dispatchEvent(new PointerEvent('pointercancel', {
+                    bubbles: true, composed: true, pointerId: pointerId == null ? 1 : pointerId,
+                    pointerType: 'touch', isPrimary: true
+                }));
+            } catch (e) { /* 지원 안 하면 생략 */ }
+        }
         let lastX = 0;         // 마지막 손가락 x
         let centerX = 0;       // 영상 가운데 x (플로팅 기준)
         let root = null;
@@ -1173,6 +1204,8 @@
             document.documentElement.classList.add('uper-speed');
             video.addEventListener('ratechange', guard);
             document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
+            swallow = true;
+            cancelNative(start.t);
 
             mountBox();
             const fromCompact = wasLocked && box.classList.contains('open');
@@ -1199,6 +1232,8 @@
             timer = null;
             if (!active) return;
             active = false;
+            clearTimeout(swallowTimer);
+            swallowTimer = setTimeout(() => { swallow = false; }, 400);   // 뒤따라오는 click까지 막음
             const v = video;
             v.removeEventListener('ratechange', guard);
             if (!shortsGuard) document.removeEventListener('touchmove', blockMove, { capture: true });
@@ -1239,6 +1274,7 @@
         document.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) { finish(); return; }
             const t = e.target;
+            if (!active) { swallow = false; clearTimeout(swallowTimer); }
             if (isOurs(t) || box.contains(t)) return;
             const p = e.touches[0];
             const r0 = playerRoot(t, p.clientX, p.clientY);
@@ -1253,7 +1289,7 @@
             root = r0;
             video = v;
             origRate = locked ? baseRate : (v.playbackRate || 1);
-            start = { x: p.clientX, y: p.clientY };
+            start = { x: p.clientX, y: p.clientY, t };
             lastX = p.clientX;
             clearTimeout(timer);
             timer = setTimeout(begin, SPEED_HOLD_MS);
@@ -1278,7 +1314,7 @@
         }, { capture: true, passive: true });
 
         ['touchend', 'touchcancel'].forEach((type) => {
-            document.addEventListener(type, () => finish(), { capture: true, passive: true });
+            document.addEventListener(type, (e) => { if (e.isTrusted) finish(); }, { capture: true, passive: true });
         });
         document.addEventListener('contextmenu', blockMenu, true);
 
@@ -1295,6 +1331,15 @@
         syncShortsGuard();
         window.addEventListener('yt-navigate-finish', syncShortsGuard);
         setInterval(syncShortsGuard, 1000);
+
+        // 홀드 중과 손을 뗀 직후의 터치는 유튜브에 넘기지 않음
+        // (유튜브가 길게 누르기·탭으로 받아 영상 정보를 올리거나 일시정지하지 않도록)
+        ['touchmove', 'touchend', 'touchcancel', 'pointermove', 'pointerup', 'pointercancel',
+            'mousedown', 'mouseup', 'click', 'contextmenu'].forEach((type) => {
+            document.addEventListener(type, (e) => {
+                if (swallow && e.isTrusted) e.stopPropagation();
+            }, { capture: true, passive: true });
+        });
         document.addEventListener('visibilitychange', () => { if (document.hidden && active) { armed = locked; finish(); } });
     }
 
