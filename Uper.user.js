@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.6.0
+// @version      1.6.1
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -13,6 +13,7 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_setClipboard
+// @grant        unsafeWindow
 // @run-at       document-end
 // ==/UserScript==
 
@@ -997,11 +998,11 @@
 
         // 전체화면에서는 전체화면 요소 안에 있어야 보이므로 그쪽으로 옮김
         function mountBox() {
-            const fs = document.fullscreenElement || document.webkitFullscreenElement;
+            const fs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
             const host = fs && fs.tagName !== 'VIDEO' ? fs : document.body;
             if (box.parentNode !== host) host.appendChild(box);
         }
-        ['fullscreenchange', 'webkitfullscreenchange'].forEach((type) => {
+        ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange'].forEach((type) => {
             document.addEventListener(type, () => {
                 mountBox();
                 if (locked && !active) setTimeout(placeCompact, 300);   // 화면 회전·크기 변화가 끝난 뒤 위치 다시 계산
@@ -1249,6 +1250,28 @@
         document.addEventListener('visibilitychange', () => { if (document.hidden && active) { armed = locked; finish(); } });
     }
 
+    /* ---------- 전체화면: 영상만 따로 전체화면이 되면 그 위에 아무것도 못 띄우므로,
+       플레이어 전체를 전체화면으로 바꿔서 플로팅이 보이게 함 (파이어폭스 등) ---------- */
+    function patchVideoFullscreen() {
+        const W = (typeof unsafeWindow !== 'undefined' && unsafeWindow) || window;
+        const proto = W.HTMLVideoElement && W.HTMLVideoElement.prototype;
+        if (!proto) return;
+        ['requestFullscreen', 'mozRequestFullScreen', 'webkitRequestFullscreen'].forEach((name) => {
+            const orig = proto[name];
+            if (typeof orig !== 'function') return;
+            const fn = function () {
+                const root = playerRoot(this);
+                if (root && root !== this && typeof root[name] === 'function') {
+                    return root[name].apply(root, arguments);
+                }
+                return orig.apply(this, arguments);
+            };
+            try {
+                proto[name] = typeof exportFunction === 'function' ? exportFunction(fn, W) : fn;
+            } catch (e) { /* 바꿀 수 없으면 그대로 둠 */ }
+        });
+    }
+
     /* ---------- 실행 ---------- */
     try {
         injectStyle();
@@ -1257,6 +1280,7 @@
         bindJar();
         bindHold();
         bindSpeedHold();
+        patchVideoFullscreen();
         renderList();
         syncTheme();
         updateLayout();
