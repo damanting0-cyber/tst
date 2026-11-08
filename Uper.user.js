@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.1.1
+// @version      1.1.2
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -902,6 +902,56 @@
         });
     }
 
+    /* ---------- 유튜브 버그 우회: '답글 더보기'가 반응 없을 때 ---------- */
+    // 모바일 유튜브에서 '답글 더보기'를 눌러도 답글이 안 열리는 경우가 있음.
+    // 누른 뒤 잠시 기다려도 그 댓글 아래 답글이 늘지 않으면,
+    // 같은 댓글의 답글 아이콘(말풍선 숫자 버튼)을 대신 눌러 답글 화면을 연다.
+    const THREAD_SEL = 'ytm-comment-thread-renderer, ytd-comment-thread-renderer';
+    const COMMENT_SEL = 'ytm-comment-renderer, ytm-comment-view-model, ytd-comment-renderer, ytd-comment-view-model';
+    const MORE_RE = /^(답글\s*더\s*보기|답글\s*[\d,.]+\s*개|View\s+(more\s+)?repl|Show\s+more\s+repl|[\d,.]+\s+repl)/i;
+    let replyFixBusy = false;
+
+    function btnText(el) {
+        return (el.textContent || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function findReplyIcon(thread, except) {
+        const btns = thread.querySelectorAll('button, [role="button"], a');
+        for (const b of btns) {
+            if (b === except || except.contains(b) || b.contains(except)) continue;
+            const label = (b.getAttribute('aria-label') || '') + ' ' + (b.title || '');
+            if (/답글|repl/i.test(label) && !MORE_RE.test(btnText(b))) return b;
+        }
+        return null;
+    }
+
+    function bindReplyFix() {
+        document.addEventListener('click', (e) => {
+            if (replyFixBusy || !e.isTrusted) return;
+            const btn = e.target.closest && e.target.closest('button, [role="button"], ytm-comment-replies-renderer, .comment-replies-renderer');
+            if (!btn || !MORE_RE.test(btnText(btn))) return;
+            const thread = btn.closest(THREAD_SEL);
+            if (!thread) return;
+
+            const before = thread.querySelectorAll(COMMENT_SEL).length;
+            let changed = false;
+            const mo = new MutationObserver(() => {
+                if (thread.querySelectorAll(COMMENT_SEL).length > before) changed = true;
+            });
+            mo.observe(thread, { childList: true, subtree: true });
+
+            setTimeout(() => {
+                mo.disconnect();
+                if (changed || !thread.isConnected) return;
+                const alt = findReplyIcon(thread, btn);
+                if (!alt) return;
+                replyFixBusy = true;
+                alt.click();
+                setTimeout(() => { replyFixBusy = false; }, 500);
+            }, 1500);
+        }, true);
+    }
+
     /* ---------- 실행 ---------- */
     try {
         injectStyle();
@@ -909,6 +959,7 @@
         bindPopup();
         bindJar();
         bindHold();
+        bindReplyFix();
         renderList();
         syncTheme();
         updateLayout();
