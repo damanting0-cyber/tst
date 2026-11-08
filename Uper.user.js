@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.2.0
+// @version      1.2.1
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -46,7 +46,6 @@
     const PLAYER_SEL = ['#player-container-id', '#player-container-outer', 'ytm-player', '#movie_player'];
     const SPEEDS = [2, 3, 4];
     const SPEED_HOLD_MS = 450;
-    const SPEED_STEP = 56;            // 손가락을 이만큼(px) 옆으로 옮기면 한 칸 이동
 
     // Material Icons (Apache 2.0) — 유튜브 앱과 같은 계열의 아이콘
     const ICON = {
@@ -402,12 +401,12 @@
             transition: opacity .2s linear, transform .3s var(--uper-ease);
         }
         #uper-speed .hl {
-            position: absolute; top: 4px; left: 4px; width: 52px; height: 32px;
+            position: absolute; top: 4px; left: 4px; width: 64px; height: 36px;
             border-radius: 999px; background: #fff;
             transition: transform .32s cubic-bezier(.2, .9, .3, 1.15);
         }
         #uper-speed .seg {
-            position: relative; width: 52px; height: 32px;
+            position: relative; width: 64px; height: 36px;
             display: flex; align-items: center; justify-content: center; gap: 2px;
             transition: color .2s;
         }
@@ -947,7 +946,7 @@
 
         let timer = null;
         let start = null;      // 터치 시작 지점
-        let baseX = 0;         // 배속이 켜진 순간의 손가락 x
+        let lastX = 0;         // 마지막 손가락 x
         let root = null;
         let video = null;
         let origRate = 1;
@@ -965,10 +964,22 @@
             if (i === idx) return;
             const changed = idx >= 0;
             idx = i;
-            hl.style.transform = `translateX(${i * 52}px)`;
+            hl.style.transform = `translateX(${i * 64}px)`;
             segs.forEach((s, k) => s.classList.toggle('on', k === i));
             if (video) video.playbackRate = SPEEDS[i];
             if (changed && navigator.vibrate) navigator.vibrate(8);
+        }
+
+        // 손가락 x와 가장 가까운 칸(2×/3×/4×)을 고름. 박스 바깥이면 양 끝 칸
+        function indexAt(x) {
+            let best = 0;
+            let bestD = Infinity;
+            segs.forEach((seg, k) => {
+                const r = seg.getBoundingClientRect();
+                const d = Math.abs(x - (r.left + r.width / 2));
+                if (d < bestD) { bestD = d; best = k; }
+            });
+            return best;
         }
 
         function markKeep() {
@@ -982,7 +993,6 @@
             timer = null;
             if (!root || !root.isConnected || !video) return;
             active = true;
-            baseX = start.x;
             markKeep();
             document.documentElement.classList.add('uper-speed');
             video.addEventListener('ratechange', guard);
@@ -992,12 +1002,12 @@
             const r = video.getBoundingClientRect();
             box.style.left = (r.left + r.width / 2) + 'px';
             box.style.top = Math.max(r.top, 0) + 12 + 'px';
+            box.classList.add('open');
             hl.style.transition = 'none';
             idx = -1;
-            select(0);
+            select(indexAt(lastX));
             void hl.offsetWidth;
             hl.style.transition = '';
-            box.classList.add('open');
             if (navigator.vibrate) navigator.vibrate(15);
         }
 
@@ -1034,6 +1044,7 @@
             video = v;
             origRate = v.playbackRate || 1;
             start = { x: p.clientX, y: p.clientY };
+            lastX = p.clientX;
             clearTimeout(timer);
             timer = setTimeout(begin, SPEED_HOLD_MS);
         }, { capture: true, passive: true });
@@ -1048,9 +1059,9 @@
                 }
                 return;
             }
+            lastX = p.clientX;
             if (!active) return;
-            const i = Math.max(0, Math.min(SPEEDS.length - 1, Math.round((p.clientX - baseX) / SPEED_STEP)));
-            select(i);
+            select(indexAt(p.clientX));
         }, { capture: true, passive: true });
 
         ['touchend', 'touchcancel'].forEach((type) => {
