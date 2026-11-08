@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.7.0
+// @version      1.7.1
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -389,7 +389,7 @@
         }
         html.uper-speed .uper-keep::before, html.uper-speed .uper-keep::after { opacity: 0 !important; }
 
-        /* ---- 홀드 배속 플로팅 (영상 좌상단, 가로 3칸 ↔ 고정 시 현재 배속 1칸) ---- */
+        /* ---- 홀드 배속 플로팅 (영상 위쪽 가운데, 가로 3칸 ↔ 고정 시 좌상단에 현재 배속 1칸) ---- */
         #uper-speed {
             position: fixed; z-index: 2147483645; left: 0; top: 0;
             box-sizing: border-box; width: 130px; height: 28px; padding: 2px;
@@ -399,7 +399,7 @@
             font: 500 12px/1 var(--uper-font); color: #fff;
             pointer-events: none; user-select: none; -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
-            transform-origin: top left;
+            transform-origin: top center;
             opacity: 0; visibility: hidden; transform: scale(.85);
             transition: opacity .15s linear, transform .25s var(--uper-ease-out),
                 width .4s var(--uper-ease), visibility 0s .25s;
@@ -407,9 +407,9 @@
         #uper-speed.open {
             opacity: 1; visibility: visible; transform: scale(1);
             transition: opacity .2s linear, transform .35s var(--uper-ease),
-                width .4s var(--uper-ease), visibility 0s;
+                width .4s var(--uper-ease), left .45s var(--uper-ease), top .45s var(--uper-ease), visibility 0s;
         }
-        #uper-speed.compact { width: 46px; pointer-events: auto; }
+        #uper-speed.compact { width: 46px; pointer-events: auto; transform-origin: top left; }
         #uper-speed.open.compact { transform: scale(.9); opacity: .6; }
         /* 아래로 끌 때 고정까지 남은 정도를 선택된 칸의 빨간 테두리로 표시 */
         #uper-speed .ring {
@@ -426,7 +426,7 @@
         /* 고정되며 접힐 때: 빨간 칸이 접히는 움직임과 같은 속도로 서서히 투명해짐 */
         #uper-speed.open.compact {
             transition: opacity .45s var(--uper-ease), transform .45s var(--uper-ease),
-                width .45s var(--uper-ease), visibility 0s;
+                width .45s var(--uper-ease), left .45s var(--uper-ease), top .45s var(--uper-ease), visibility 0s;
         }
         #uper-speed.compact .track { transition: transform .45s var(--uper-ease); }
         #uper-speed.compact .hl {
@@ -1085,10 +1085,17 @@
         }
 
         // 플로팅은 항상 영상 좌상단
-        function place(v) {
+        // 펼쳐진 플로팅은 영상 위쪽 가운데, 고정된 작은 플로팅은 영상 좌상단
+        const FULL_W = 130;
+        let morphUntil = 0;    // 이 시각까지는 위치 이동을 애니메이션으로
+        function place(v, compact, animate) {
             const r = v.getBoundingClientRect();
-            box.style.left = Math.max(r.left, 0) + 8 + 'px';
-            box.style.top = Math.max(r.top, 0) + 8 + 'px';
+            const left = compact ? Math.max(r.left, 0) + 8 : r.left + r.width / 2 - FULL_W / 2;
+            const top = Math.max(r.top, 0) + 8;
+            if (!animate) box.style.transition = 'none';
+            box.style.left = left + 'px';
+            box.style.top = top + 'px';
+            if (!animate) { void box.offsetWidth; box.style.transition = ''; }
             return r;
         }
 
@@ -1098,7 +1105,7 @@
             const v = lockVideo && lockVideo.isConnected ? lockVideo : null;
             if (!v) { box.classList.remove('open'); return; }
             mountBox();
-            const r = place(v);
+            const r = place(v, true, Date.now() < morphUntil);
             box.classList.toggle('open', r.bottom > 44 && r.height > 40);
         }
 
@@ -1142,14 +1149,16 @@
             document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
 
             mountBox();
-            place(video);
+            const fromCompact = wasLocked && box.classList.contains('open');
+            morphUntil = Date.now() + 500;
+            place(video, false, fromCompact);   // 작은 플로팅이었다면 가운데로 미끄러지며 펼쳐짐
             setRing(0);
             baseX = lastX;
             startIdx = wasLocked ? lockIdx : SPEED_START;
             idx = startIdx;
             video.playbackRate = SPEEDS[idx];
 
-            if (wasLocked && box.classList.contains('open')) {
+            if (fromCompact) {
                 // 고정된 작은 플로팅이 그대로 펼쳐짐
                 box.classList.remove('compact');
                 paint(idx);
@@ -1187,6 +1196,8 @@
                 box.classList.remove('lock');
                 box.classList.add('compact');
                 paint(idx);
+                morphUntil = Date.now() + 500;
+                place(v, true, true);           // 줄어들며 좌상단으로 이동
             } else {
                 // 고정 안 함 (고정 중이었다면 해제): 원래 배속으로
                 const back = locked ? baseRate : origRate;
