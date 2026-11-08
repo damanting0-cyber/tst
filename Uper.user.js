@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.2.1
+// @version      1.3.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -44,7 +44,9 @@
 
     // 플레이어 홀드 배속
     const PLAYER_SEL = ['#player-container-id', '#player-container-outer', 'ytm-player', '#movie_player'];
-    const SPEEDS = [2, 3, 4];
+    const SPEEDS = [1.5, 2, 3];
+    const SPEED_START = 1;            // 홀드 시작은 2×
+    const SPEED_STEP = 44;            // 손가락을 이만큼(px) 옆으로 옮기면 한 칸 이동
     const SPEED_HOLD_MS = 450;
 
     // Material Icons (Apache 2.0) — 유튜브 앱과 같은 계열의 아이콘
@@ -388,10 +390,10 @@
         /* ---- 홀드 배속 선택 박스 ---- */
         #uper-speed {
             position: fixed; z-index: 2147483645; left: 0; top: 0;
-            display: flex; padding: 4px; border-radius: 999px;
+            display: flex; padding: 2px; border-radius: 999px;
             background: rgba(0,0,0,.55);
             -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
-            font: 500 14px/1 var(--uper-font); color: #fff;
+            font: 500 12px/1 var(--uper-font); color: #fff;
             pointer-events: none; user-select: none; -webkit-user-select: none;
             opacity: 0; transform: translate(-50%, -6px) scale(.92);
             transition: opacity .15s linear, transform .2s var(--uper-ease-out);
@@ -401,12 +403,12 @@
             transition: opacity .2s linear, transform .3s var(--uper-ease);
         }
         #uper-speed .hl {
-            position: absolute; top: 4px; left: 4px; width: 64px; height: 36px;
+            position: absolute; top: 2px; left: 2px; width: 42px; height: 24px;
             border-radius: 999px; background: #fff;
             transition: transform .32s cubic-bezier(.2, .9, .3, 1.15);
         }
         #uper-speed .seg {
-            position: relative; width: 64px; height: 36px;
+            position: relative; width: 42px; height: 24px;
             display: flex; align-items: center; justify-content: center; gap: 2px;
             transition: color .2s;
         }
@@ -788,6 +790,8 @@
         scrim.classList.remove('open');
         sheet.classList.remove('open');
         updateLayout();
+        // 닫히는 애니메이션이 끝나면 목록과 섬네일을 비움
+        setTimeout(() => { if (!sheetOpen) listEl.textContent = ''; }, 300);
     }
 
     // 손잡이/제목줄을 아래로 끌어내리면 닫힘
@@ -878,6 +882,8 @@
         const list = loadTips();
         refreshJar(list.length);
         sheetCount.textContent = list.length ? String(list.length) : '';
+        // 시트가 닫혀 있으면 섬네일을 불러오지 않음 (트래픽 절약)
+        if (!sheetOpen) return;
 
         listEl.textContent = '';
         listEl.classList.toggle('uper-sheet-in', !!animate);
@@ -947,6 +953,7 @@
         let timer = null;
         let start = null;      // 터치 시작 지점
         let lastX = 0;         // 마지막 손가락 x
+        let baseX = 0;         // 배속이 켜진 순간의 손가락 x
         let root = null;
         let video = null;
         let origRate = 1;
@@ -964,22 +971,16 @@
             if (i === idx) return;
             const changed = idx >= 0;
             idx = i;
-            hl.style.transform = `translateX(${i * 64}px)`;
+            hl.style.transform = `translateX(${i * 42}px)`;
             segs.forEach((s, k) => s.classList.toggle('on', k === i));
             if (video) video.playbackRate = SPEEDS[i];
             if (changed && navigator.vibrate) navigator.vibrate(8);
         }
 
-        // 손가락 x와 가장 가까운 칸(2×/3×/4×)을 고름. 박스 바깥이면 양 끝 칸
+        // 홀드가 켜진 지점 기준으로 좌우 이동 거리만큼 칸 이동 (가운데 2×에서 시작)
         function indexAt(x) {
-            let best = 0;
-            let bestD = Infinity;
-            segs.forEach((seg, k) => {
-                const r = seg.getBoundingClientRect();
-                const d = Math.abs(x - (r.left + r.width / 2));
-                if (d < bestD) { bestD = d; best = k; }
-            });
-            return best;
+            const i = SPEED_START + Math.round((x - baseX) / SPEED_STEP);
+            return Math.max(0, Math.min(SPEEDS.length - 1, i));
         }
 
         function markKeep() {
@@ -1001,11 +1002,12 @@
             // 선택 박스는 영상 위쪽 가운데
             const r = video.getBoundingClientRect();
             box.style.left = (r.left + r.width / 2) + 'px';
-            box.style.top = Math.max(r.top, 0) + 12 + 'px';
+            box.style.top = Math.max(r.top, 0) + 6 + 'px';
             box.classList.add('open');
             hl.style.transition = 'none';
             idx = -1;
-            select(indexAt(lastX));
+            baseX = lastX;
+            select(SPEED_START);
             void hl.offsetWidth;
             hl.style.transition = '';
             if (navigator.vibrate) navigator.vibrate(15);
