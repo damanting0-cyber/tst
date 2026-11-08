@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.6.1
+// @version      1.7.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -47,8 +47,8 @@
     const PLAYER_SEL = ['#player-container-id', '#player-container-outer', 'ytm-player', '#movie_player'];
     const SPEEDS = [1.5, 2, 3];
     const SPEED_START = 1;            // 홀드 시작은 2×
-    const SPEED_STEP = 40;            // 손가락을 이만큼(px) 위아래로 옮기면 한 칸 이동
-    const SPEED_LOCK_DX = 70;         // 홀드한 채 이만큼(px) 옆으로 밀면 배속 고정
+    const SPEED_STEP = 40;            // 손가락을 이만큼(px) 좌우로 옮기면 한 칸 이동
+    const SPEED_LOCK_DY = 70;         // 홀드한 채 이만큼(px) 아래로 끌면 배속 고정
     const SPEED_HOLD_MS = 450;
 
     // Material Icons (Apache 2.0) — 유튜브 앱과 같은 계열의 아이콘
@@ -389,10 +389,10 @@
         }
         html.uper-speed .uper-keep::before, html.uper-speed .uper-keep::after { opacity: 0 !important; }
 
-        /* ---- 홀드 배속 플로팅 (영상 좌상단, 세로 3칸 ↔ 고정 시 현재 배속 1칸) ---- */
+        /* ---- 홀드 배속 플로팅 (영상 좌상단, 가로 3칸 ↔ 고정 시 현재 배속 1칸) ---- */
         #uper-speed {
             position: fixed; z-index: 2147483645; left: 0; top: 0;
-            box-sizing: border-box; width: 46px; height: 76px; padding: 2px;
+            box-sizing: border-box; width: 130px; height: 28px; padding: 2px;
             border-radius: 14px; overflow: hidden;
             background: rgba(0,0,0,.55);
             -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
@@ -402,16 +402,16 @@
             transform-origin: top left;
             opacity: 0; visibility: hidden; transform: scale(.85);
             transition: opacity .15s linear, transform .25s var(--uper-ease-out),
-                height .4s var(--uper-ease), border-radius .4s var(--uper-ease), visibility 0s .25s;
+                width .4s var(--uper-ease), visibility 0s .25s;
         }
         #uper-speed.open {
             opacity: 1; visibility: visible; transform: scale(1);
             transition: opacity .2s linear, transform .35s var(--uper-ease),
-                height .4s var(--uper-ease), border-radius .4s var(--uper-ease), visibility 0s;
+                width .4s var(--uper-ease), visibility 0s;
         }
-        #uper-speed.compact { height: 28px; border-radius: 14px; pointer-events: auto; }
+        #uper-speed.compact { width: 46px; pointer-events: auto; }
         #uper-speed.open.compact { transform: scale(.9); opacity: .6; }
-        /* 옆으로 밀 때 고정까지 남은 정도를 선택된 칸의 빨간 테두리로 표시 */
+        /* 아래로 끌 때 고정까지 남은 정도를 선택된 칸의 빨간 테두리로 표시 */
         #uper-speed .ring {
             position: absolute; left: 0; top: 0; width: 42px; height: 24px;
             pointer-events: none; overflow: visible;
@@ -426,21 +426,21 @@
         /* 고정되며 접힐 때: 빨간 칸이 접히는 움직임과 같은 속도로 서서히 투명해짐 */
         #uper-speed.open.compact {
             transition: opacity .45s var(--uper-ease), transform .45s var(--uper-ease),
-                height .45s var(--uper-ease), border-radius .45s var(--uper-ease), visibility 0s;
+                width .45s var(--uper-ease), visibility 0s;
         }
         #uper-speed.compact .track { transition: transform .45s var(--uper-ease); }
         #uper-speed.compact .hl {
             transition: transform .45s var(--uper-ease), background-color .45s var(--uper-ease);
         }
         #uper-speed.compact .seg { transition: color .45s var(--uper-ease), opacity .45s; }
-        #uper-speed .track { position: relative; transition: transform .4s var(--uper-ease); }
+        #uper-speed .track { position: relative; display: flex; transition: transform .4s var(--uper-ease); }
         #uper-speed .hl {
             position: absolute; top: 0; left: 0; width: 42px; height: 24px;
             border-radius: 999px; background: #fff;
             transition: transform .32s cubic-bezier(.2, .9, .3, 1.15), background-color .25s;
         }
         #uper-speed .seg {
-            position: relative; width: 42px; height: 24px;
+            position: relative; flex-shrink: 0; width: 42px; height: 24px;
             display: flex; align-items: center; justify-content: center;
             transition: color .25s, opacity .25s;
         }
@@ -976,17 +976,15 @@
     }
 
     function bindSpeedHold() {
-        const ROW = 24;
-        const N = SPEEDS.length;
-        const rowOf = (i) => N - 1 - i;            // 위에서부터 3×, 2×, 1.5×
+        const COL = 42;
+        const N = SPEEDS.length;                    // 왼쪽부터 1.5×, 2×, 3×
 
         const box = h('div', { id: 'uper-speed', 'aria-hidden': 'true' });
         const track = h('div', { class: 'track' });
         const hl = h('div', { class: 'hl' });
         track.appendChild(hl);
         const segs = [];
-        for (let r = 0; r < N; r++) {
-            const i = N - 1 - r;
+        for (let i = 0; i < N; i++) {
             const seg = h('div', { class: 'seg', text: SPEEDS[i] + '×' });
             segs[i] = seg;
             track.appendChild(seg);
@@ -1017,16 +1015,15 @@
 
         let timer = null;
         let start = null;      // 터치 시작 지점
-        let lastY = 0;         // 마지막 손가락 y
-        let baseY = 0;         // 배속이 켜진 순간의 손가락 y
+        let lastX = 0;         // 마지막 손가락 x
+        let baseX = 0;         // 배속이 켜진 순간의 손가락 x
         let startIdx = SPEED_START;
         let root = null;
         let video = null;
         let origRate = 1;
         let idx = 0;
         let active = false;
-        let armed = false;     // 옆으로 밀어서 고정 준비됨
-        let pushDir = 1;       // 고정하려고 밀어야 하는 방향 (왼쪽 홀드 → 오른쪽 +1, 오른쪽 홀드 → 왼쪽 -1)
+        let armed = false;     // 아래로 끌어서 고정 준비됨
         let kept = [];
 
         let locked = false;    // 배속 고정 상태
@@ -1053,9 +1050,9 @@
 
         function paint(i, snap) {
             if (snap) { hl.style.transition = 'none'; track.style.transition = 'none'; }
-            hl.style.transform = `translateY(${rowOf(i) * ROW}px)`;
+            hl.style.transform = `translateX(${i * COL}px)`;
             segs.forEach((s, k) => s.classList.toggle('on', k === i));
-            track.style.transform = box.classList.contains('compact') ? `translateY(${-rowOf(i) * ROW}px)` : '';
+            track.style.transform = box.classList.contains('compact') ? `translateX(${-i * COL}px)` : '';
             if (snap) { void box.offsetWidth; hl.style.transition = ''; track.style.transition = ''; }
         }
 
@@ -1067,9 +1064,9 @@
             if (navigator.vibrate) navigator.vibrate(8);
         }
 
-        // 홀드가 켜진 지점 기준 세로 이동: 위로 올리면 빠르게, 내리면 느리게
-        function indexAt(y) {
-            const i = startIdx + Math.round((baseY - y) / SPEED_STEP);
+        // 홀드가 켜진 지점 기준 좌우 이동: 오른쪽으로 빠르게, 왼쪽으로 느리게
+        function indexAt(x) {
+            const i = startIdx + Math.round((x - baseX) / SPEED_STEP);
             return Math.max(0, Math.min(N - 1, i));
         }
 
@@ -1145,10 +1142,9 @@
             document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
 
             mountBox();
-            const vr = place(video);
-            pushDir = start.x > vr.left + vr.width / 2 ? -1 : 1;
+            place(video);
             setRing(0);
-            baseY = lastY;
+            baseX = lastX;
             startIdx = wasLocked ? lockIdx : SPEED_START;
             idx = startIdx;
             video.playbackRate = SPEEDS[idx];
@@ -1220,7 +1216,7 @@
             video = v;
             origRate = locked ? baseRate : (v.playbackRate || 1);
             start = { x: p.clientX, y: p.clientY };
-            lastY = p.clientY;
+            lastX = p.clientX;
             clearTimeout(timer);
             timer = setTimeout(begin, SPEED_HOLD_MS);
         }, { capture: true, passive: true });
@@ -1235,10 +1231,10 @@
                 }
                 return;
             }
-            lastY = p.clientY;
+            lastX = p.clientX;
             if (!active) return;
-            select(indexAt(p.clientY));
-            const f = Math.max(0, (p.clientX - start.x) * pushDir) / SPEED_LOCK_DX;
+            select(indexAt(p.clientX));
+            const f = Math.max(0, p.clientY - start.y) / SPEED_LOCK_DY;
             setRing(f);
             setArmed(f >= 1);
         }, { capture: true, passive: true });
