@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.1.2
+// @version      1.1.3
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -41,8 +41,6 @@
         'ytm-engagement-panel-section-list-renderer', 'ytm-expandable-video-description-body-renderer',
         'ytd-text-inline-expander'
     ].join(',');
-    // 이게 화면에 열려 있으면 유리통 버튼을 숨김 (댓글/설명 패널을 가리지 않도록)
-    const PANEL_SEL = 'ytm-engagement-panel, ytm-engagement-panel-section-list-renderer, bottom-sheet-container, ytm-bottom-sheet-renderer';
 
     // Material Icons (Apache 2.0) — 유튜브 앱과 같은 계열의 아이콘
     const ICON = {
@@ -269,7 +267,6 @@
             transition: bottom .3s var(--uper-ease), transform .2s var(--uper-ease), opacity .2s;
         }
         #uper-jar:active { transform: scale(.9); }
-        #uper-jar.away { opacity: 0; transform: scale(.6); pointer-events: none; }
         #uper-jar.pop { animation: uper-pop .45s var(--uper-ease); }
         #uper-jar .fill {
             transform-box: fill-box; transform-origin: center bottom;
@@ -464,16 +461,7 @@
         return (r.height > 0 && r.bottom >= innerHeight - 4) ? r.height : 0;
     }
 
-    function panelOpen() {
-        for (const el of document.querySelectorAll(PANEL_SEL)) {
-            const r = el.getBoundingClientRect();
-            if (r.height > 40 && r.top < innerHeight - 40 && r.bottom > 0) return true;
-        }
-        return false;
-    }
-
     let lastBottom = '';
-    let lastHidden = null;
     function updateLayout() {
         const b = navHeight() + 16;
         const bottom = b + 'px';
@@ -482,11 +470,6 @@
             jar.style.bottom = bottom;
         }
         snack.style.bottom = (sheetOpen ? 16 : b + 60) + 'px';
-        const hidden = !sheetOpen && panelOpen();
-        if (hidden !== lastHidden) {
-            lastHidden = hidden;
-            jar.classList.toggle('away', hidden);
-        }
     }
 
     /* ---------- UI 생성 ---------- */
@@ -902,56 +885,6 @@
         });
     }
 
-    /* ---------- 유튜브 버그 우회: '답글 더보기'가 반응 없을 때 ---------- */
-    // 모바일 유튜브에서 '답글 더보기'를 눌러도 답글이 안 열리는 경우가 있음.
-    // 누른 뒤 잠시 기다려도 그 댓글 아래 답글이 늘지 않으면,
-    // 같은 댓글의 답글 아이콘(말풍선 숫자 버튼)을 대신 눌러 답글 화면을 연다.
-    const THREAD_SEL = 'ytm-comment-thread-renderer, ytd-comment-thread-renderer';
-    const COMMENT_SEL = 'ytm-comment-renderer, ytm-comment-view-model, ytd-comment-renderer, ytd-comment-view-model';
-    const MORE_RE = /^(답글\s*더\s*보기|답글\s*[\d,.]+\s*개|View\s+(more\s+)?repl|Show\s+more\s+repl|[\d,.]+\s+repl)/i;
-    let replyFixBusy = false;
-
-    function btnText(el) {
-        return (el.textContent || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
-    }
-
-    function findReplyIcon(thread, except) {
-        const btns = thread.querySelectorAll('button, [role="button"], a');
-        for (const b of btns) {
-            if (b === except || except.contains(b) || b.contains(except)) continue;
-            const label = (b.getAttribute('aria-label') || '') + ' ' + (b.title || '');
-            if (/답글|repl/i.test(label) && !MORE_RE.test(btnText(b))) return b;
-        }
-        return null;
-    }
-
-    function bindReplyFix() {
-        document.addEventListener('click', (e) => {
-            if (replyFixBusy || !e.isTrusted) return;
-            const btn = e.target.closest && e.target.closest('button, [role="button"], ytm-comment-replies-renderer, .comment-replies-renderer');
-            if (!btn || !MORE_RE.test(btnText(btn))) return;
-            const thread = btn.closest(THREAD_SEL);
-            if (!thread) return;
-
-            const before = thread.querySelectorAll(COMMENT_SEL).length;
-            let changed = false;
-            const mo = new MutationObserver(() => {
-                if (thread.querySelectorAll(COMMENT_SEL).length > before) changed = true;
-            });
-            mo.observe(thread, { childList: true, subtree: true });
-
-            setTimeout(() => {
-                mo.disconnect();
-                if (changed || !thread.isConnected) return;
-                const alt = findReplyIcon(thread, btn);
-                if (!alt) return;
-                replyFixBusy = true;
-                alt.click();
-                setTimeout(() => { replyFixBusy = false; }, 500);
-            }, 1500);
-        }, true);
-    }
-
     /* ---------- 실행 ---------- */
     try {
         injectStyle();
@@ -959,7 +892,6 @@
         bindPopup();
         bindJar();
         bindHold();
-        bindReplyFix();
         renderList();
         syncTheme();
         updateLayout();
