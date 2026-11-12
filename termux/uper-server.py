@@ -1,80 +1,39 @@
 #!/data/data/com.termux/files/usr/bin/python
-"""Uper → Termux 수신 서버
+"""Uper → Termux 다운로드 서버
 
-유튜브 페이지의 Uper 버튼이 http://127.0.0.1:8765/send?url=...&format=mp3|mp4 로 영상 주소를 보내면
-yt-dlp로 공유창 없이 바로 저장한다.
-- mp3: 음악만 MP3로 → MUSIC_DIR
-- mp4: 영상 MP4로   → VIDEO_DIR
-- format이 없으면(예전 Uper) 기존 ~/bin/termux-url-opener 를 그대로 실행
+유튜브 페이지의 Uper 다운 버튼이 보내는 요청을 받아 yt-dlp로 공유창 없이 바로 저장한다.
+  GET /send?url=...&format=mp3|mp4   다운로드 시작 → {"id": ...}
+  GET /status                         진행 중·최근 다운로드 목록 (진행률)
+  GET /ping                           살아 있는지 확인
 
-- 휴대폰 안에서만 접속 가능 (127.0.0.1)
-- Uper가 붙이는 X-Uper 헤더가 있는 요청만 받음 (다른 웹페이지가 함부로 부르지 못하게)
+- mp3: 음악만 MP3로 → MUSIC_DIR,  mp4: 영상 MP4로 → VIDEO_DIR
+- 끝난 파일은 미디어 목록에 등록 (삼성뮤직·갤러리에 바로 보이게)
+- 휴대폰 안에서만 접속 가능 (127.0.0.1), Uper가 붙이는 X-Uper 헤더가 있는 요청만 받음
 - https://www.youtube.com/watch?v=영상ID 형태의 주소만 받음
 """
 import http.server
+import json
 import os
 import re
 import shutil
 import subprocess
 import threading
+import time
 import urllib.parse
 from datetime import datetime
 
 HOST = '127.0.0.1'
 PORT = 8765
-OPENER = os.path.expanduser('~/bin/termux-url-opener')
 LOG = os.path.expanduser('~/uper-server.log')
 ALLOWED = re.compile(r'^https://www\.youtube\.com/watch\?v=[\w-]{11}$')
 MUSIC_DIR = '/sdcard/노래'
 VIDEO_DIR = '/sdcard/Movies'
 NAME = '%(title)s [%(id)s].%(ext)s'
+KEEP_DONE_SEC = 120          # 끝난 항목을 목록에 남겨 두는 시간
 
-
-def command(fmt, url):
-    ytdlp = shutil.which('yt-dlp') or 'yt-dlp'
-    if fmt == 'mp3':
-        return [ytdlp, '-x', '--audio-format', 'mp3', '--audio-quality', '0',
-                '--embed-thumbnail', '--add-metadata', '--no-playlist',
-                '--print', 'after_move:UPER_FILE %(filepath)s', '--no-simulate',
-                '-o', os.path.join(MUSIC_DIR, NAME), url]
-    if fmt == 'mp4':
-        return [ytdlp, '-f', 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b',
-                '--merge-output-format', 'mp4', '--no-playlist',
-                '--print', 'after_move:UPER_FILE %(filepath)s', '--no-simulate',
-                '-o', os.path.join(VIDEO_DIR, NAME), url]
-    return [OPENER, url]
-
-
-def media_scan(path):
-    """새 파일을 안드로이드 미디어 목록에 등록해야 삼성뮤직·갤러리에 바로 보인다.
-    (Termux가 직접 쓴 파일은 자동으로 등록되지 않음)"""
-    if shutil.which('termux-media-scan'):           # pkg install termux-api + Termux:API 앱
-        r = subprocess.run(['termux-media-scan', path], capture_output=True, text=True)
-        log(f'미디어 등록(termux-media-scan) {r.returncode}: {path}')
-        if r.returncode == 0:
-            return
-    # Termux:API가 없을 때: 안드로이드 미디어 스캐너에 직접 알림
-    uri = 'file://' + urllib.parse.quote(path)
-    r = subprocess.run(['am', 'broadcast', '--user', '0', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE',
-                        '-d', uri], capture_output=True, text=True)
-    log(f'미디어 등록(am broadcast) {r.returncode}: {path}')
-
-
-def run_download(cmd):
-    """yt-dlp 실행 → 끝난 파일을 미디어 목록에 등록"""
-    with open(LOG, 'a', encoding='utf-8') as out:
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=out, text=True, start_new_session=True)
-        files = []
-        for line in p.stdout:
-            if line.startswith('UPER_FILE '):
-                files.append(line[len('UPER_FILE '):].strip())
-            else:
-                out.write(line)
-        p.wait()
-    log(f'끝 (코드 {p.returncode}): {files or "파일 없음"}')
-    for f in files:
-        if os.path.exists(f):
-            media_scan(f)
+jobs = {}                    # id → 상태
+jobs_lock = threading.Lock()
+next_id = [0]
 
 
 def log(msg):
@@ -82,11 +41,94 @@ def log(msg):
         f.write(f'{datetime.now():%Y-%m-%d %H:%M:%S} {msg}\n')
 
 
+def command(fmt, url):
+    ytdlp = shutil.which('yt-dlp') or 'yt-dlp'
+    common = ['--no-playlist', '--newline', '--progress', '--no-simulate',
+              '--print', 'before_dl:UPER_TITLE %(title)s',
+              '--print', 'after_move:UPER_FILE %(filepath)s',
+              '--progress-template', 'download:UPER_PROG %(progress._percent_str)s|%(progress._eta_str)s|%(progress._speed_str)s',
+              '--progress-template', 'postprocess:UPER_PP %(progress.postprocessor)s']
+    if fmt == 'mp3':
+        return [ytdlp, '-x', '--audio-format', 'mp3', '--audio-quality', '0',
+                '--embed-thumbnail', '--add-metadata', *common,
+                '-o', os.path.join(MUSIC_DIR, NAME), url]
+    return [ytdlp, '-f', 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b',
+            '--merge-output-format', 'mp4', *common,
+            '-o', os.path.join(VIDEO_DIR, NAME), url]
+
+
+def media_scan(path):
+    """Termux가 직접 쓴 파일은 자동 등록되지 않아서 미디어 목록에 알려 줌"""
+    if shutil.which('termux-media-scan'):           # termux-api 패키지 + Termux:API 앱
+        r = subprocess.run(['termux-media-scan', path], capture_output=True, text=True)
+        log(f'미디어 등록(termux-media-scan) {r.returncode}: {path}')
+        if r.returncode == 0:
+            return
+    uri = 'file://' + urllib.parse.quote(path)
+    r = subprocess.run(['am', 'broadcast', '--user', '0', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE',
+                        '-d', uri], capture_output=True, text=True)
+    log(f'미디어 등록(am broadcast) {r.returncode}: {path}')
+
+
+def update(job, **kw):
+    with jobs_lock:
+        job.update(kw, updated=time.time())
+
+
+def run_download(job, cmd):
+    files = []
+    last_err = ''
+    with open(LOG, 'a', encoding='utf-8') as out:
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                             bufsize=1, start_new_session=True)
+        for raw in p.stdout:
+            line = raw.strip()
+            if line.startswith('UPER_PROG '):
+                pct, eta, speed = (line[10:].split('|') + ['', '', ''])[:3]
+                try:
+                    pv = float(pct.strip().rstrip('%'))
+                except ValueError:
+                    pv = None
+                if pv is not None and job['percent'] is not None and pv + 5 < job['percent']:
+                    update(job, part=job['part'] + 1)        # MP4: 영상 → 소리 두 번째 파일
+                update(job, status='downloading', percent=pv, eta=eta.strip(), speed=speed.strip())
+            elif line.startswith('UPER_PP '):
+                update(job, status='converting')
+            elif line.startswith('UPER_TITLE '):
+                update(job, title=line[11:])
+            elif line.startswith('UPER_FILE '):
+                files.append(line[10:])
+            else:
+                out.write(raw)
+                if 'ERROR' in line:
+                    last_err = line
+        p.wait()
+    log(f'끝 #{job["id"]} (코드 {p.returncode}): {files or "파일 없음"}')
+    if p.returncode != 0 or not files:
+        update(job, status='error', error=last_err or f'yt-dlp 종료 코드 {p.returncode}')
+        return
+    update(job, status='saving', percent=100.0)
+    for f in files:
+        if os.path.exists(f):
+            media_scan(f)
+    update(job, status='done', file=os.path.basename(files[-1]))
+
+
+def snapshot():
+    now = time.time()
+    with jobs_lock:
+        for k in [k for k, j in jobs.items()
+                  if j['status'] in ('done', 'error') and now - j['updated'] > KEEP_DONE_SEC]:
+            del jobs[k]
+        return sorted((dict(j) for j in jobs.values()), key=lambda j: j['id'])
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
-    def reply(self, code, text):
-        body = text.encode('utf-8')
+    def reply(self, code, data):
+        body = (data if isinstance(data, str) else json.dumps(data, ensure_ascii=False)).encode('utf-8')
         self.send_response(code)
-        self.send_header('Content-Type', 'text/plain; charset=utf-8')
+        self.send_header('Content-Type', 'application/json; charset=utf-8' if not isinstance(data, str)
+                         else 'text/plain; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -94,35 +136,36 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         if u.path == '/ping':
-            return self.reply(200, 'ok v2')
-        if u.path != '/send':
-            return self.reply(404, 'not found')
+            return self.reply(200, 'ok v3')
         if self.headers.get('X-Uper') != '1':
             return self.reply(403, 'forbidden')
+        if u.path == '/status':
+            return self.reply(200, {'jobs': snapshot()})
+        if u.path != '/send':
+            return self.reply(404, 'not found')
+
         q = urllib.parse.parse_qs(u.query)
         url = q.get('url', [''])[0]
-        fmt = q.get('format', [''])[0]
+        fmt = q.get('format', ['mp3'])[0] or 'mp3'
         if not ALLOWED.match(url):
             log(f'거부: {url!r}')
             return self.reply(400, 'bad url')
-        if fmt not in ('', 'mp3', 'mp4'):
+        if fmt not in ('mp3', 'mp4'):
             return self.reply(400, 'bad format')
-        cmd = command(fmt, url)
-        if fmt:
-            if not shutil.which('yt-dlp'):
-                log('yt-dlp 없음')
-                return self.reply(500, 'yt-dlp not found')
-            os.makedirs(MUSIC_DIR if fmt == 'mp3' else VIDEO_DIR, exist_ok=True)
-        elif not os.access(OPENER, os.X_OK):
-            log(f'실행 불가: {OPENER}')
-            return self.reply(500, 'termux-url-opener not found')
-        if fmt:
-            threading.Thread(target=run_download, args=(cmd,), daemon=True).start()
-        else:
-            out = open(LOG, 'a', encoding='utf-8')
-            subprocess.Popen(cmd, stdout=out, stderr=out, start_new_session=True)
-        log(f'시작({fmt or "opener"}): {url}')
-        return self.reply(200, 'ok ' + (fmt or 'opener'))
+        if not shutil.which('yt-dlp'):
+            log('yt-dlp 없음')
+            return self.reply(500, 'yt-dlp not found')
+        os.makedirs(MUSIC_DIR if fmt == 'mp3' else VIDEO_DIR, exist_ok=True)
+
+        with jobs_lock:
+            next_id[0] += 1
+            job = {'id': next_id[0], 'url': url, 'format': fmt, 'title': '', 'status': 'starting',
+                   'percent': None, 'eta': '', 'speed': '', 'part': 1, 'file': '', 'error': '',
+                   'updated': time.time()}
+            jobs[job['id']] = job
+        threading.Thread(target=run_download, args=(job, command(fmt, url)), daemon=True).start()
+        log(f'시작 #{job["id"]} ({fmt}): {url}')
+        return self.reply(200, {'id': job['id']})
 
     def log_message(self, *args):
         pass

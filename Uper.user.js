@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.13.0
+// @version      1.14.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -376,6 +376,47 @@
         }
         #uper-dl .act:active { background: var(--uper-press); }
         #uper-dl .act.primary { background: var(--uper-text); color: var(--uper-sheet); }
+
+        /* ---- 다운로드 진행 카드 (버튼 위) ---- */
+        #uper-dlprog {
+            position: fixed; right: 16px; bottom: 76px; z-index: 2147483621;
+            display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+            pointer-events: none; transition: bottom .3s var(--uper-ease);
+        }
+        .uper-job {
+            pointer-events: auto; position: relative; overflow: hidden; box-sizing: border-box;
+            width: min(300px, calc(100vw - 32px)); padding: 10px 12px 12px;
+            display: flex; align-items: center; gap: 10px;
+            border-radius: 14px; background: var(--uper-glass); color: var(--uper-text);
+            -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
+            box-shadow: 0 2px 10px rgba(0,0,0,.25); font-family: var(--uper-font);
+            -webkit-tap-highlight-color: transparent;
+            animation: uper-job-in .35s var(--uper-ease) both;
+            transition: opacity .3s, transform .3s var(--uper-ease);
+        }
+        .uper-job.gone { opacity: 0; transform: translateX(24px); }
+        @keyframes uper-job-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+        .uper-job .fmt {
+            flex-shrink: 0; width: 38px; height: 26px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font: 600 11px/1 var(--uper-font); background: var(--uper-press);
+        }
+        .uper-job .txt { flex: 1; min-width: 0; }
+        .uper-job .ttl {
+            font-size: 13px; font-weight: 500; line-height: 18px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .uper-job .sub { font-size: 12px; line-height: 16px; color: var(--uper-text2); }
+        .uper-job .bar {
+            position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+            background: var(--uper-red); transform-origin: left; transform: scaleX(0);
+            transition: transform .6s linear, background-color .3s;
+        }
+        .uper-job.busy .bar { animation: uper-job-busy 1.2s ease-in-out infinite; }
+        @keyframes uper-job-busy { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+        .uper-job.done .bar { background: #2ba640; }
+        .uper-job.error .bar { background: #888; transform: scaleX(1); }
+        .uper-job.error .sub { color: #ff6b6b; }
         #uper-jar.pop { animation: uper-pop .45s var(--uper-ease); }
         #uper-jar .fill {
             transform-box: fill-box; transform-origin: center bottom;
@@ -809,7 +850,8 @@
     function isOurs(t) {
         const fab = document.getElementById('uper-termux');
         return popup.contains(t) || jar.contains(t) || sheet.contains(t) || scrim.contains(t) || snack.contains(t) ||
-            !!(fab && fab.contains(t)) || !!(dlBox && (dlBox.contains(t) || dlScrim.contains(t)));
+            !!(fab && fab.contains(t)) || !!(dlBox && (dlBox.contains(t) || dlScrim.contains(t))) ||
+            !!(progBox && progBox.contains(t));
     }
 
     // 댓글·설명·패널 안의 링크(타임스탬프 등)는 건드리지 않고, 섬네일 있는 영상 카드만 대상으로 함
@@ -1830,6 +1872,107 @@
         });
     }
 
+    /* ---- 다운로드 진행률: 서버의 /status를 받아 버튼 위 카드로 표시 ---- */
+    let progBox = null;
+    let pollTimer = null;
+    let pollFails = 0;
+    const jobEls = new Map();          // 작업 id → 카드
+    const dismissed = new Set();
+
+    function fetchStatus() {
+        return new Promise((resolve) => {
+            if (typeof GM_xmlhttpRequest !== 'function') { resolve(null); return; }
+            GM_xmlhttpRequest({
+                method: 'GET', url: TERMUX_SERVER + '/status', headers: { 'X-Uper': '1' }, timeout: 3000,
+                onload: (r) => {
+                    try { resolve(r.status === 200 ? JSON.parse(r.responseText).jobs : null); } catch (e) { resolve(null); }
+                },
+                onerror: () => resolve(null),
+                ontimeout: () => resolve(null)
+            });
+        });
+    }
+
+    function jobText(j) {
+        const pct = j.percent == null ? '' : Math.round(j.percent) + '%';
+        const part = j.format === 'mp4' && j.part > 1 ? ' · 소리' : (j.format === 'mp4' ? ' · 영상' : '');
+        switch (j.status) {
+            case 'starting': return '준비 중…';
+            case 'downloading': return `${pct}${part}` + (j.eta && j.eta !== 'Unknown' ? ` · 남은 시간 ${j.eta}` : '');
+            case 'converting': return j.format === 'mp3' ? 'MP3로 변환 중…' : '영상과 소리 합치는 중…';
+            case 'saving': return '저장 중…';
+            case 'done': return (j.format === 'mp3' ? '노래' : 'Movies') + ' 폴더에 저장했어요';
+            case 'error': return '실패 · ' + (j.error || '').replace(/^ERROR:\s*/, '').slice(0, 60);
+            default: return j.status;
+        }
+    }
+
+    function renderJobs(list) {
+        const seen = new Set();
+        for (const j of list) {
+            if (dismissed.has(j.id)) continue;
+            seen.add(j.id);
+            let el = jobEls.get(j.id);
+            if (!el) {
+                // 페이지를 열기 전에 이미 끝난 작업은 보이지 않음
+                if ((j.status === 'done' || j.status === 'error') && !pollTimer) continue;
+                el = h('div', { class: 'uper-job', role: 'status' },
+                    h('div', { class: 'fmt', text: j.format.toUpperCase() }),
+                    h('div', { class: 'txt' }, h('div', { class: 'ttl' }), h('div', { class: 'sub' })),
+                    h('div', { class: 'bar' }));
+                bindTap(el, () => dismissJob(j.id));
+                progBox.appendChild(el);
+                jobEls.set(j.id, el);
+            }
+            el.querySelector('.ttl').textContent = j.title || '영상 정보 가져오는 중…';
+            el.querySelector('.sub').textContent = jobText(j);
+            const p = j.status === 'done' ? 100 : (j.percent || 0);
+            // MP4는 영상·소리 두 번 받으므로 전체 진행률을 반씩 나눠 표시
+            const whole = j.format === 'mp4' && j.status === 'downloading'
+                ? (j.part > 1 ? 50 + p / 2 : p / 2) : p;
+            el.querySelector('.bar').style.transform = `scaleX(${Math.max(0, Math.min(100, whole)) / 100})`;
+            el.classList.toggle('busy', ['starting', 'converting', 'saving'].includes(j.status));
+            el.classList.toggle('done', j.status === 'done');
+            el.classList.toggle('error', j.status === 'error');
+            if ((j.status === 'done' || j.status === 'error') && !el.dataset.bye) {
+                el.dataset.bye = '1';
+                setTimeout(() => dismissJob(j.id), j.status === 'done' ? 4000 : 8000);
+            }
+        }
+        // 서버 목록에서 빠진 카드 정리
+        for (const [id] of jobEls) if (!seen.has(id)) dismissJob(id);
+    }
+
+    function dismissJob(id) {
+        dismissed.add(id);
+        const el = jobEls.get(id);
+        if (!el) return;
+        jobEls.delete(id);
+        el.classList.add('gone');
+        setTimeout(() => el.remove(), 320);
+    }
+
+    // 진행 중인 작업이 있을 때만 1초마다 확인 (없으면 멈춰서 배터리·트래픽 아낌)
+    async function watchJobs(started) {
+        if (started) pollFails = 0;
+        clearTimeout(pollTimer);
+        pollTimer = null;
+        const list = await fetchStatus();
+        if (!list) {
+            if (started || ++pollFails < 3) pollTimer = setTimeout(() => watchJobs(false), 1500);
+            return;
+        }
+        pollFails = 0;
+        if (started || list.some((j) => !['done', 'error'].includes(j.status))) {
+            pollTimer = setTimeout(() => watchJobs(false), 1000);
+        }
+        renderJobs(list);
+        if (!list.some((j) => !['done', 'error'].includes(j.status))) {
+            clearTimeout(pollTimer);
+            pollTimer = null;
+        }
+    }
+
     let termuxBusy = false;
 
     async function sendToTermux(url, format, btn) {
@@ -1840,7 +1983,7 @@
         try {
             // 1) Termux 서버 → 공유창 없이 바로 저장
             if (await sendViaServer(url, format)) {
-                showSnack(format === 'mp4' ? 'MP4 다운로드를 시작했어요' : 'MP3 다운로드를 시작했어요');
+                watchJobs(true);                                   // 진행 카드로 진행률 표시
                 return;
             }
 
@@ -1953,10 +2096,16 @@
             chooseDownload(cleanWatchUrl(id), fab);
         });
 
+        progBox = h('div', { id: 'uper-dlprog' });
+        document.body.appendChild(progBox);
+        watchJobs(false);                         // 페이지를 열었을 때 이미 받는 중인 작업이 있으면 이어서 표시
+
         const sync = () => {
             fab.classList.toggle('on', !!currentVideoId());
             const jb = jar.style.bottom || '16px';
             if (fab.style.bottom !== jb) fab.style.bottom = jb;      // 유리통과 같은 높이
+            const pb = (parseFloat(jb) + 60) + 'px';
+            if (progBox.style.bottom !== pb) progBox.style.bottom = pb;
         };
         sync();
         setInterval(sync, 500);
