@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.11.1
+// @version      1.12.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/Termux/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 Termux로 바로 보낼 수 있습니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -14,6 +14,8 @@
 // @grant        GM_getValue
 // @grant        GM_setClipboard
 // @grant        unsafeWindow
+// @grant        GM_xmlhttpRequest
+// @connect      127.0.0.1
 // @run-at       document-end
 // ==/UserScript==
 
@@ -1703,12 +1705,17 @@
     }
 
     /* ---------- Termux로 보내기 ----------
-       Termux의 공유 수신 화면(TermuxFileReceiverActivity)을 intent URI로 직접 열어
-       ~/bin/termux-url-opener 가 영상 URL을 받게 함.
-       실패하면 navigator.share → 클립보드 복사 순으로 넘어감. */
+       Termux에서 돌고 있는 작은 서버(termux/uper-server.py, 127.0.0.1:8765)에 영상 주소를 넘기면
+       서버가 ~/bin/termux-url-opener 를 실행 → 공유창 없이 바로 저장 시작.
+       서버가 꺼져 있으면 공유창 → 그것도 안 되면 클립보드 복사.
+
+       참고: intent URI로 Termux 공유 화면을 직접 여는 방식은 쓰지 않음.
+       안드로이드 브라우저(파이어폭스 포함)는 보안상 intent의 component 지정을 지우고
+       '웹 링크로 열 수 있는(BROWSABLE)' 앱만 열어 주는데, Termux 공유 화면은 그렇지 않아서 실패하고,
+       실패 과정에서 페이지 이동이 일어나 화면이 비는 현상이 있었음. */
     const TERMUX_LOG = '[Uper/Termux]';
-    const TERMUX_WAIT_MS = 600;       // 이 시간 안에 앱 전환 조짐이 없으면 실패로 봄
-    const TERMUX_WAIT_BLUR_MS = 4000; // 브라우저 확인창 등으로 포커스만 빠졌을 때는 더 기다림
+    const TERMUX_SERVER = 'http://127.0.0.1:8765';
+    const TERMUX_TIMEOUT_MS = 1500;
     const ID_RE = /^[\w-]{11}$/;
 
     // 지금 보고 있는 영상 ID (클릭 시점의 주소에서 읽음 → 유튜브 페이지 이동 후에도 최신)
@@ -1728,57 +1735,33 @@
         return 'https://www.youtube.com/watch?v=' + id;
     }
 
-    function termuxIntent(url) {
-        return 'intent:#Intent;action=android.intent.action.SEND;type=text/plain;' +
-            'S.android.intent.extra.TEXT=' + encodeURIComponent(url) + ';' +
-            'component=com.termux/.filepicker.TermuxFileReceiverActivity;end';
-    }
-
-    // intent를 열고, 다른 앱으로 넘어가 페이지가 가려졌는지로 성공 여부를 판단
-    function openIntent(uri) {
+    // Termux 서버로 전송. 성공하면 true
+    function sendViaServer(url) {
         return new Promise((resolve) => {
-            let done = false;
-            const finish = (ok, why) => {
-                if (done) return;
-                done = true;
-                document.removeEventListener('visibilitychange', onVis);
-                window.removeEventListener('pagehide', onHide);
-                window.removeEventListener('blur', onBlur);
-                clearTimeout(timer);
-                console.log(TERMUX_LOG, ok ? 'intent 성공으로 판단:' : 'intent 실패로 판단:', why);
-                resolve(ok);
-            };
-            const onVis = () => { if (document.hidden) finish(true, 'visibilitychange(hidden)'); };
-            const onHide = () => finish(true, 'pagehide');
-            let blurred = false;
-            const onBlur = () => {
-                if (blurred) return;
-                blurred = true;
-                console.log(TERMUX_LOG, 'window blur 감지 (앱 전환 또는 브라우저 확인창) → 판단을 미룸');
-                clearTimeout(timer);
-                timer = setTimeout(() => finish(false, `blur 후 ${TERMUX_WAIT_BLUR_MS}ms 동안 앱으로 넘어가지 않음`), TERMUX_WAIT_BLUR_MS);
-            };
-            document.addEventListener('visibilitychange', onVis);
-            window.addEventListener('pagehide', onHide);
-            window.addEventListener('blur', onBlur);
-            let timer = setTimeout(() => {
-                finish(false, `${TERMUX_WAIT_MS}ms 동안 아무 반응 없음 (Termux 미설치, 액티비티 이름 오류, 또는 브라우저가 intent를 막음)`);
-            }, TERMUX_WAIT_MS);
-
-            try {
-                // 사용자 탭 안에서 링크를 누르는 방식 (파이어폭스가 외부 앱 열기를 허용하는 경로)
-                const a = document.createElement('a');
-                a.href = uri;
-                a.rel = 'noopener';
-                a.style.display = 'none';
-                document.body.appendChild(a);
-                console.log(TERMUX_LOG, 'intent 호출:', uri);
-                a.click();
-                a.remove();
-            } catch (e) {
-                console.warn(TERMUX_LOG, 'intent 호출 중 예외:', e);
-                finish(false, 'exception: ' + (e && e.message));
+            if (typeof GM_xmlhttpRequest !== 'function') {
+                console.warn(TERMUX_LOG, 'GM_xmlhttpRequest 없음 (스크립트를 다시 설치해 권한을 받아야 함)');
+                resolve(false);
+                return;
             }
+            const t0 = Date.now();
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: TERMUX_SERVER + '/send?url=' + encodeURIComponent(url),
+                headers: { 'X-Uper': '1' },          // 다른 웹페이지가 서버를 함부로 부르지 못하게
+                timeout: TERMUX_TIMEOUT_MS,
+                onload: (r) => {
+                    console.log(TERMUX_LOG, `서버 응답 ${r.status} (${Date.now() - t0}ms):`, (r.responseText || '').slice(0, 200));
+                    resolve(r.status === 200);
+                },
+                onerror: (e) => {
+                    console.warn(TERMUX_LOG, `서버 연결 실패 (${Date.now() - t0}ms) — Termux에서 uper-server.py가 안 돌고 있음`, e && e.error);
+                    resolve(false);
+                },
+                ontimeout: () => {
+                    console.warn(TERMUX_LOG, `서버 응답 없음 (${TERMUX_TIMEOUT_MS}ms 초과)`);
+                    resolve(false);
+                }
+            });
         });
     }
 
@@ -1788,31 +1771,23 @@
         if (termuxBusy) return;
         termuxBusy = true;
         if (btn) btn.classList.add('busy');
-        console.log(TERMUX_LOG, '보낼 주소:', url, '| 페이지:', location.href, '| UA:', navigator.userAgent);
+        console.log(TERMUX_LOG, '보낼 주소:', url, '| 페이지:', location.href);
         try {
-            // 1) Termux 직접 호출
-            if (/Android/i.test(navigator.userAgent)) {
-                if (await openIntent(termuxIntent(url))) {
-                    showSnack('Termux로 보냈어요');
-                    return;
-                }
-            } else {
-                console.log(TERMUX_LOG, '안드로이드가 아니라 intent 건너뜀');
+            // 1) Termux 서버 → 공유창 없이 바로 저장
+            if (await sendViaServer(url)) {
+                showSnack('Termux로 보냈어요');
+                return;
             }
 
-            // 2) 공유창
+            // 2) 공유창 (서버가 꺼져 있을 때)
             if (navigator.share) {
                 try {
                     await navigator.share({ url });
                     console.log(TERMUX_LOG, 'navigator.share 완료');
-                    showSnack('Termux를 바로 못 열어서 공유창으로 보냈어요');
                     return;
                 } catch (e) {
                     console.warn(TERMUX_LOG, 'navigator.share 실패:', e && e.name, e && e.message);
-                    if (e && e.name === 'AbortError') {      // 사용자가 공유창을 닫음
-                        showSnack('공유를 취소했어요');
-                        return;
-                    }
+                    if (e && e.name === 'AbortError') return;          // 사용자가 공유창을 닫음
                 }
             } else {
                 console.log(TERMUX_LOG, 'navigator.share 없음');
@@ -1826,12 +1801,12 @@
             }
             console.log(TERMUX_LOG, '클립보드 복사로 대체');
             if (navigator.share) {
-                showSnack('Termux를 못 열어서 링크를 복사했어요', '공유', () => {
+                showSnack('Termux 서버가 꺼져 있어 링크를 복사했어요', '공유', () => {
                     hideSnack();
                     navigator.share({ url }).catch((e) => console.warn(TERMUX_LOG, '공유 버튼에서도 실패:', e && e.name));
                 });
             } else {
-                showSnack('Termux를 못 열어서 링크를 복사했어요');
+                showSnack('Termux 서버가 꺼져 있어 링크를 복사했어요');
             }
         } finally {
             termuxBusy = false;

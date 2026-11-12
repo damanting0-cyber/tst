@@ -18,3 +18,19 @@ https://raw.githubusercontent.com/damanting0-cyber/tst/main/Uper.user.js
 ## 업데이트하는 법
 
 `Uper.user.js`를 고친 뒤 맨 위의 `@version` 숫자를 올려서 커밋하면 됩니다. Tampermonkey는 버전이 올라갔을 때만 새로 받아요.
+
+## Termux로 보내기 (음악 저장)
+
+영상 페이지의 다운로드 버튼이나 꾹 누르기 팝업의 **Termux**를 누르면, 공유창 없이 바로 Termux의 `~/bin/termux-url-opener`가 실행됩니다.
+이를 위해 Termux에서 작은 서버(`termux/uper-server.py`, 휴대폰 안에서만 접속 가능)가 돌고 있어야 해요.
+
+Termux에서 한 번만 실행:
+
+```
+curl -sL https://raw.githubusercontent.com/damanting0-cyber/tst/main/termux/setup.sh | bash
+```
+
+- 이후 Termux를 열 때마다 서버가 꺼져 있으면 자동으로 켜집니다.
+- 서버가 꺼져 있으면 Uper는 공유창 → 링크 복사 순으로 대신 동작합니다.
+- 기록은 `~/uper-server.log`에 남습니다.
+
