@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.16.1
+// @version      1.17.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -229,11 +229,52 @@
     }
 
     /* ---------- 스타일 (유튜브 다크/라이트 토큰 + 유튜브식 모션) ---------- */
+    /* ---------- 애플식 스프링 곡선 ----------
+       iOS의 spring(response, dampingFraction)과 같은 물리 곡선을 계산해
+       CSS linear() 이징으로 만들어 씀. 시간은 0~1로 정규화해 어떤 길이의 애니메이션에도 같은 느낌.
+       linear()를 모르는 브라우저에서는 비슷한 cubic-bezier로 대체. */
+    function springCurve(zeta, n) {
+        n = n || 40;
+        const pts = [];
+        if (zeta >= 1) {
+            const w = 9;                                   // 임계 감쇠: t=1에서 거의 정지
+            for (let i = 0; i <= n; i++) {
+                const t = i / n;
+                pts.push(1 - (1 + w * t) * Math.exp(-w * t));
+            }
+        } else {
+            const decay = 7;                               // e^-7 ≈ 0.001: t=1에서 흔들림이 사라짐
+            const w = decay / zeta;
+            const wd = w * Math.sqrt(1 - zeta * zeta);
+            for (let i = 0; i <= n; i++) {
+                const t = i / n;
+                pts.push(1 - Math.exp(-zeta * w * t) * (Math.cos(wd * t) + (zeta * w / wd) * Math.sin(wd * t)));
+            }
+        }
+        pts[0] = 0;
+        pts[n] = 1;
+        return 'linear(' + pts.map((v) => +v.toFixed(4)).join(', ') + ')';
+    }
+
+    const HAS_LINEAR_EASING = (() => {
+        try { return CSS.supports('transition-timing-function', 'linear(0, 1)'); } catch (e) { return false; }
+    })();
+    const SPRING = HAS_LINEAR_EASING ? {
+        smooth: springCurve(0.86),      // 기본: 살짝 탄력 있게 멈춤 (iOS 기본 스프링)
+        bouncy: springCurve(0.68),      // 팝업·카드 등장: 톡 튀어나옴
+        snappy: springCurve(1)          // 닫힘: 튕김 없이 빠르게
+    } : {
+        smooth: 'cubic-bezier(.2, .9, .25, 1.05)',
+        bouncy: 'cubic-bezier(.2, 1.1, .3, 1.15)',
+        snappy: 'cubic-bezier(.25, .9, .3, 1)'
+    };
+
     function injectStyle() {
         const css = `
         :root {
-            --uper-ease: cubic-bezier(.05, .7, .1, 1);      /* 들어올 때: 빠르게 시작, 부드럽게 멈춤 */
-            --uper-ease-out: cubic-bezier(.3, 0, .8, .15);  /* 나갈 때 */
+            --uper-ease: ${SPRING.smooth};       /* 기본 스프링 */
+            --uper-bounce: ${SPRING.bouncy};     /* 등장: 톡 튀는 스프링 */
+            --uper-ease-out: ${SPRING.snappy};   /* 닫힘: 튕김 없는 스프링 */
             --uper-font: "YouTube Sans", Roboto, "Noto Sans KR", Arial, sans-serif;
             --uper-red: #ff0033;
             --uper-sheet: #212121;
@@ -278,11 +319,11 @@
             transform-origin: left bottom;
             opacity: 0; transform: scale(.88) translateY(6px);
             visibility: hidden; pointer-events: none;
-            transition: opacity .12s var(--uper-ease-out), transform .12s var(--uper-ease-out), visibility 0s .12s;
+            transition: opacity .18s linear, transform .3s var(--uper-ease-out), visibility 0s .3s;
         }
         #uper-popup.open {
             opacity: 1; transform: none; visibility: visible; pointer-events: auto;
-            transition: opacity .2s var(--uper-ease), transform .25s var(--uper-ease), visibility 0s;
+            transition: opacity .15s linear, transform .55s var(--uper-bounce), visibility 0s;
         }
         #uper-popup button {
             display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px 0 10px;
@@ -328,12 +369,12 @@
             -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
             box-shadow: 0 2px 8px rgba(0,0,0,.25);
             opacity: 0; visibility: hidden; transform: scale(.6);
-            transition: bottom .3s var(--uper-ease), transform .2s var(--uper-ease),
-                opacity .2s, visibility 0s .2s;
+            transition: bottom .5s var(--uper-ease), transform .35s var(--uper-ease-out),
+                opacity .2s, visibility 0s .35s;
         }
         #uper-termux.on {
             opacity: 1; visibility: visible; transform: scale(1);
-            transition: bottom .3s var(--uper-ease), transform .25s var(--uper-ease), opacity .2s, visibility 0s;
+            transition: bottom .5s var(--uper-ease), transform .55s var(--uper-bounce), opacity .2s, visibility 0s;
         }
         #uper-termux.on:active { transform: scale(.88); }
         #uper-termux.busy svg { animation: uper-termux-pulse .8s ease-in-out infinite; }
@@ -342,21 +383,22 @@
         /* ---- 다운 형식 고르기 / MP4 데이터 주의 ---- */
         #uper-dl-scrim {
             position: fixed; inset: 0; z-index: 2147483638; background: rgba(0,0,0,.5);
-            opacity: 0; visibility: hidden; transition: opacity .2s linear, visibility 0s .2s;
+            opacity: 0; visibility: hidden; transition: opacity .3s var(--uper-ease-out), visibility 0s .3s;
             -webkit-tap-highlight-color: transparent;
         }
-        #uper-dl-scrim.open { opacity: 1; visibility: visible; transition: opacity .2s linear, visibility 0s; }
+        #uper-dl-scrim.open { opacity: 1; visibility: visible; transition: opacity .35s var(--uper-ease), visibility 0s; }
         #uper-dl {
             position: fixed; left: 50%; bottom: 24px; z-index: 2147483639;
             width: min(360px, calc(100vw - 32px)); box-sizing: border-box; padding: 20px 16px 12px;
             border-radius: 20px; background: var(--uper-sheet); color: var(--uper-text);
             box-shadow: var(--uper-shadow); font-family: var(--uper-font);
-            opacity: 0; visibility: hidden; transform: translate(-50%, 24px) scale(.97);
-            transition: opacity .15s linear, transform .2s var(--uper-ease-out), visibility 0s .2s;
+            opacity: 0; visibility: hidden; transform: translate(-50%, 40px) scale(.94);
+            transform-origin: 50% 100%;
+            transition: opacity .2s linear, transform .35s var(--uper-ease-out), visibility 0s .35s;
         }
         #uper-dl.open {
             opacity: 1; visibility: visible; transform: translate(-50%, 0);
-            transition: opacity .2s linear, transform .35s var(--uper-ease), visibility 0s;
+            transition: opacity .15s linear, transform .6s var(--uper-bounce), visibility 0s;
         }
         #uper-dl h2 { margin: 0 4px 4px; font-size: 16px; font-weight: 600; line-height: 22px; }
         #uper-dl p { margin: 0 4px 16px; font-size: 13px; line-height: 19px; color: var(--uper-text2); }
@@ -364,9 +406,9 @@
         #uper-dl .opt {
             flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
             padding: 14px; border-radius: 14px; background: var(--uper-press); text-align: left;
-            transition: transform .15s var(--uper-ease), background-color .15s;
+            transition: transform .45s var(--uper-bounce), background-color .15s;
         }
-        #uper-dl .opt:active { transform: scale(.97); }
+        #uper-dl .opt:active { transform: scale(.95); transition-duration: .2s, .15s; }
         #uper-dl .opt b { font-size: 16px; font-weight: 600; }
         #uper-dl .opt span { font-size: 12px; color: var(--uper-text2); }
         #uper-dl .acts { display: flex; justify-content: flex-end; gap: 4px; margin-top: 12px; }
@@ -391,11 +433,11 @@
             -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
             box-shadow: 0 2px 10px rgba(0,0,0,.25); font-family: var(--uper-font);
             -webkit-tap-highlight-color: transparent;
-            animation: uper-job-in .35s var(--uper-ease) both;
+            animation: uper-job-in .6s var(--uper-bounce) both;
             transition: opacity .3s, transform .3s var(--uper-ease);
         }
         .uper-job.gone { opacity: 0; transform: translateX(24px); }
-        @keyframes uper-job-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+        @keyframes uper-job-in { from { opacity: 0; transform: translateY(16px) scale(.92); } }
         .uper-job .head { display: flex; align-items: center; gap: 10px; }
         .uper-job .fmt {
             flex-shrink: 0; width: 38px; height: 26px; border-radius: 8px;
@@ -462,7 +504,7 @@
         @keyframes uper-spin { to { transform: rotate(360deg); } }
         @keyframes uper-spin-out { from { transform: rotate(-90deg); } to { transform: rotate(0deg); } }
         .uper-job .err { font-size: 11px; line-height: 15px; color: #ff6b6b; padding-left: 30px; }
-        #uper-jar.pop { animation: uper-pop .45s var(--uper-ease); }
+        #uper-jar.pop { animation: uper-pop .6s var(--uper-bounce); }
         #uper-jar .fill {
             transform-box: fill-box; transform-origin: center bottom;
             transition: transform .5s var(--uper-ease);
@@ -473,12 +515,12 @@
             background: var(--uper-red); color: #fff; text-align: center;
             font: 500 11px/16px var(--uper-font);
             border: 2px solid var(--uper-surface);
-            transform: scale(0); transition: transform .25s var(--uper-ease);
+            transform: scale(0); transition: transform .5s var(--uper-bounce);
         }
         #uper-jar .count.on { transform: scale(1); }
         @keyframes uper-pop {
             0% { transform: scale(1); }
-            35% { transform: scale(1.14); }
+            25% { transform: scale(1.14); }
             100% { transform: scale(1); }
         }
 
@@ -486,10 +528,10 @@
         #uper-scrim {
             position: fixed; inset: 0; z-index: 2147483630;
             background: rgba(0,0,0,.6); opacity: 0; visibility: hidden;
-            transition: opacity .2s linear, visibility 0s .2s;
+            transition: opacity .35s var(--uper-ease-out), visibility 0s .35s;
             -webkit-tap-highlight-color: transparent;
         }
-        #uper-scrim.open { opacity: 1; visibility: visible; transition: opacity .25s linear, visibility 0s; }
+        #uper-scrim.open { opacity: 1; visibility: visible; transition: opacity .4s var(--uper-ease), visibility 0s; }
 
         #uper-sheet {
             position: fixed; left: 0; right: 0; bottom: 0; z-index: 2147483635;
@@ -500,11 +542,11 @@
             font-family: var(--uper-font);
             padding-bottom: env(safe-area-inset-bottom);
             transform: translateY(100%); visibility: hidden;
-            transition: transform .2s var(--uper-ease-out), visibility 0s .2s;
+            transition: transform .4s var(--uper-ease-out), visibility 0s .4s;
         }
         #uper-sheet.open {
             transform: translateY(0); visibility: visible;
-            transition: transform .35s var(--uper-ease), visibility 0s;
+            transition: transform .6s var(--uper-ease), visibility 0s;
         }
         #uper-sheet.dragging { transition: none; }
         #uper-sheet .grab { padding: 8px 0 0; flex-shrink: 0; touch-action: none; }
@@ -549,7 +591,7 @@
             touch-action: pan-y; -webkit-tap-highlight-color: transparent;
         }
         .uper-item:active { background: var(--uper-press); }
-        .uper-sheet-in .uper-row { animation: uper-row-in .35s var(--uper-ease) both; }
+        .uper-sheet-in .uper-row { animation: uper-row-in .55s var(--uper-ease) both; }
         @keyframes uper-row-in {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: none; }
@@ -682,12 +724,13 @@
             padding: 6px 8px 6px 16px; border-radius: 8px;
             background: var(--uper-snack-bg); color: var(--uper-snack-text);
             font: 14px/20px var(--uper-font); box-shadow: 0 4px 12px rgba(0,0,0,.3);
-            opacity: 0; transform: translateY(16px); visibility: hidden; pointer-events: none;
-            transition: opacity .15s linear, transform .2s var(--uper-ease-out), visibility 0s .2s, bottom .3s var(--uper-ease);
+            opacity: 0; transform: translateY(24px) scale(.96); visibility: hidden; pointer-events: none;
+            transform-origin: 50% 100%;
+            transition: opacity .2s linear, transform .35s var(--uper-ease-out), visibility 0s .35s, bottom .5s var(--uper-ease);
         }
         #uper-snack.open {
             opacity: 1; transform: none; visibility: visible; pointer-events: auto;
-            transition: opacity .2s linear, transform .3s var(--uper-ease), visibility 0s, bottom .3s var(--uper-ease);
+            transition: opacity .15s linear, transform .55s var(--uper-bounce), visibility 0s, bottom .5s var(--uper-ease);
         }
         #uper-snack .msg { flex: 1; min-width: 0; padding: 6px 0; }
         #uper-snack .action {
@@ -2089,8 +2132,16 @@
         const el = jobEls.get(id);
         if (!el) return;
         jobEls.delete(id);
-        el.classList.add('gone');
-        setTimeout(() => el.remove(), 320);
+        const hgt = el.offsetHeight;
+        el.style.animation = 'none';
+        el.style.pointerEvents = 'none';
+        const a = el.animate([
+            { opacity: 1, transform: 'scale(1)', height: hgt + 'px', marginBottom: '0px' },
+            { opacity: 0, transform: 'scale(.9)', height: hgt + 'px', marginBottom: '0px', offset: 0.45 },
+            { opacity: 0, transform: 'scale(.9)', height: '0px', marginBottom: '-8px',
+                paddingTop: '0px', paddingBottom: '0px' }       // 간격(8px)까지 접어서 다른 카드가 매끄럽게 내려옴
+        ], { duration: 520, easing: SPRING.snappy, fill: 'forwards' });
+        a.onfinish = () => el.remove();
     }
 
     // 진행 중인 작업이 있을 때만 1초마다 확인 (없으면 멈춰서 배터리·트래픽 아낌)
@@ -2185,6 +2236,7 @@
 
         // 2단계: MP4는 데이터 주의 한 번 더
         bindTap(mp4, () => {
+            const from = dlBox.offsetHeight;
             const back = h('button', { class: 'uper-btn-reset act', type: 'button', text: '취소' });
             const ok = h('button', { class: 'uper-btn-reset act primary', type: 'button', text: '받기' });
             dlBox.textContent = '';
@@ -2194,8 +2246,16 @@
                 h('div', { class: 'acts' }, back, ok));
             bindTap(back, closeDl);
             bindTap(ok, () => go('mp4'));
+            const to = dlBox.offsetHeight;
+            dlBox.animate([{ height: from + 'px' }, { height: to + 'px' }],
+                { duration: 550, easing: SPRING.smooth });
+            for (const [i, c] of [...dlBox.children].entries()) {
+                c.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }],
+                    { duration: 550, delay: 40 * i, easing: SPRING.smooth, fill: 'backwards' });
+            }
         });
 
+        void dlBox.offsetWidth;                  // 처음 만든 직후에도 등장 애니메이션이 보이도록
         dlScrim.classList.add('open');
         dlBox.classList.add('open');
     }
