@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.16.0
+// @version      1.16.1
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -26,7 +26,7 @@
     const HOLD_MS = 500;
     const MOVE_LIMIT = 12;
     const SWIPE_DELETE = 90;
-    const SNACK_MS = 4000;
+    const SNACK_MS = 6000;
     const FULL_AT = 20;               // 이 개수에서 유리통이 가득 참
     const LINK_SEL = 'a[href*="watch?v="], a[href*="/shorts/"]';
     const CARD_SEL = [
@@ -1923,7 +1923,7 @@
         return new Promise((resolve) => {
             if (typeof GM_xmlhttpRequest !== 'function') {
                 console.warn(TERMUX_LOG, 'GM_xmlhttpRequest 없음 (스크립트를 다시 설치해 권한을 받아야 함)');
-                resolve(false);
+                resolve({ ok: false, why: 'perm' });
                 return;
             }
             const t0 = Date.now();
@@ -1934,15 +1934,18 @@
                 timeout: TERMUX_TIMEOUT_MS,
                 onload: (r) => {
                     console.log(TERMUX_LOG, `서버 응답 ${r.status} (${Date.now() - t0}ms):`, (r.responseText || '').slice(0, 200));
-                    resolve(r.status === 200);
+                    // status 0: Tampermonkey가 127.0.0.1 접속을 허용받지 못함
+                    resolve({ ok: r.status === 200, why: r.status === 0 ? 'perm' : 'http', status: r.status,
+                        text: (r.responseText || '').slice(0, 80) });
                 },
                 onerror: (e) => {
                     console.warn(TERMUX_LOG, `서버 연결 실패 (${Date.now() - t0}ms) — Termux에서 uper-server.py가 안 돌고 있음`, e && e.error);
-                    resolve(false);
+                    const err = String((e && e.error) || '');
+                    resolve({ ok: false, why: /refused to connect|@connect|blacklist|not (allowed|permitted)/i.test(err) ? 'perm' : 'down', text: err });
                 },
                 ontimeout: () => {
                     console.warn(TERMUX_LOG, `서버 응답 없음 (${TERMUX_TIMEOUT_MS}ms 초과)`);
-                    resolve(false);
+                    resolve({ ok: false, why: 'timeout' });
                 }
             });
         });
@@ -2120,39 +2123,28 @@
         console.log(TERMUX_LOG, '보낼 주소:', url, '| 형식:', format, '| 페이지:', location.href);
         try {
             // 1) Termux 서버 → 공유창 없이 바로 저장
-            if (await sendViaServer(url, format)) {
+            const res = await sendViaServer(url, format);
+            if (res.ok) {
                 watchJobs(true);                                   // 진행 카드로 진행률 표시
                 return;
             }
 
-            // 2) 공유창 (서버가 꺼져 있을 때)
+            // 실패 이유를 알려 주고, 공유창은 직접 누를 때만 (자동으로 띄우지 않음)
+            try { GM_setClipboard(url, 'text'); } catch (e) { await copyText(url); }
+            const msg = {
+                perm: 'Tampermonkey가 Termux 연결을 막았어요. 설정에서 127.0.0.1 허용 필요',
+                down: 'Termux 서버가 꺼져 있어요. Termux를 한 번 열어 주세요',
+                timeout: 'Termux가 응답하지 않아요. Termux를 열어 깨워 주세요',
+                http: `Termux 서버 오류 (${res.status} ${res.text || ''})`.trim()
+            }[res.why] || 'Termux로 보내지 못했어요';
+            console.log(TERMUX_LOG, '실패 이유:', res.why, res);
             if (navigator.share) {
-                try {
-                    await navigator.share({ url });
-                    console.log(TERMUX_LOG, 'navigator.share 완료');
-                    return;
-                } catch (e) {
-                    console.warn(TERMUX_LOG, 'navigator.share 실패:', e && e.name, e && e.message);
-                    if (e && e.name === 'AbortError') return;          // 사용자가 공유창을 닫음
-                }
-            } else {
-                console.log(TERMUX_LOG, 'navigator.share 없음');
-            }
-
-            // 3) 클립보드 + 직접 누르는 '공유' 버튼
-            try {
-                GM_setClipboard(url, 'text');
-            } catch (e) {
-                await copyText(url);
-            }
-            console.log(TERMUX_LOG, '클립보드 복사로 대체');
-            if (navigator.share) {
-                showSnack('Termux 서버가 꺼져 있어 링크를 복사했어요', '공유', () => {
+                showSnack(msg + ' · 링크 복사됨', '공유', () => {
                     hideSnack();
-                    navigator.share({ url }).catch((e) => console.warn(TERMUX_LOG, '공유 버튼에서도 실패:', e && e.name));
+                    navigator.share({ url }).catch((e) => console.warn(TERMUX_LOG, '공유 실패:', e && e.name));
                 });
             } else {
-                showSnack('Termux 서버가 꺼져 있어 링크를 복사했어요');
+                showSnack(msg + ' · 링크 복사됨');
             }
         } finally {
             termuxBusy = false;
