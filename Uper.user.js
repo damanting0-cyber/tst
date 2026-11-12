@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.20.0
+// @version      1.20.1
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -2530,21 +2530,66 @@
     }
 
     // 키보드가 올라오면 화면에 보이는 영역(visualViewport)이 줄어듦 → 그만큼 창을 부드럽게 올림
+    // 입력칸을 누르는 순간 키보드가 올라올 걸 알기 때문에, 키보드를 기다리지 않고 바로 올림.
+    // 높이는 지난번에 잰 키보드 높이(없으면 화면의 40%)로 먼저 움직이고, 실제 값이 오면 살짝 맞춤.
+    const KB_KEY = 'uper_kb_height';
     let kbBound = false;
-    function syncKeyboard() {
+    let kbGuess = 0;
+    let kbOpen = false;
+    function setKb(px) {
+        if (dlBox) dlBox.style.setProperty('--uper-kb', Math.max(0, Math.round(px)) + 'px');
+    }
+    function measuredKb() {
         const vv = window.visualViewport;
-        if (!vv || !dlBox) return;
-        const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-        dlBox.style.setProperty('--uper-kb', (kb > 60 ? kb : 0) + 'px');
+        return vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+    }
+    function syncKeyboard() {
+        if (!dlBox) return;
+        const kb = measuredKb();
+        if (kb > 60) {
+            kbGuess = kb;
+            try { localStorage.setItem(KB_KEY, String(kb)); } catch (e) { /* 저장 못 해도 괜찮음 */ }
+            setKb(kb);
+        } else if (!kbOpen) {
+            setKb(0);
+        }
+    }
+    function guessKb() {
+        if (!kbGuess) {
+            try { kbGuess = +localStorage.getItem(KB_KEY) || 0; } catch (e) { kbGuess = 0; }
+        }
+        return kbGuess || Math.round(window.innerHeight * 0.4);
     }
     function bindKeyboard() {
-        if (kbBound || !window.visualViewport) return;
+        if (kbBound) return;
         kbBound = true;
-        window.visualViewport.addEventListener('resize', syncKeyboard);
-        window.visualViewport.addEventListener('scroll', syncKeyboard);
-        // 입력칸에 들어가고 나올 때도 한 번 더 (키보드 애니메이션이 끝난 뒤 값으로)
-        document.addEventListener('focusin', () => { syncKeyboard(); setTimeout(syncKeyboard, 350); }, true);
-        document.addEventListener('focusout', () => setTimeout(syncKeyboard, 350), true);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', syncKeyboard);
+            window.visualViewport.addEventListener('scroll', syncKeyboard);
+        }
+        // 입력칸에 손가락이 닿는 순간 바로 올림
+        document.addEventListener('touchstart', (e) => {
+            if (!dlBox || !dlBox.classList.contains('open')) return;
+            if (e.target.closest && e.target.closest('#uper-dl input')) {
+                kbOpen = true;
+                setKb(guessKb());
+            }
+        }, { capture: true, passive: true });
+        document.addEventListener('focusin', (e) => {
+            if (dlBox && dlBox.contains(e.target) && e.target.tagName === 'INPUT') {
+                kbOpen = true;
+                if (measuredKb() < 60) setKb(guessKb());
+            }
+        }, true);
+        // 입력칸에서 나가면(다른 입력칸으로 옮기는 경우 제외) 바로 내림
+        document.addEventListener('focusout', () => {
+            setTimeout(() => {
+                const a = document.activeElement;
+                if (dlBox && a && dlBox.contains(a) && a.tagName === 'INPUT') return;
+                kbOpen = false;
+                setKb(0);
+            }, 0);
+        }, true);
     }
 
     function ensureDl() {
