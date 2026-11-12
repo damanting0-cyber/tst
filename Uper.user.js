@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.9.2
-// @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다.
+// @version      1.11.0
+// @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/Termux/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 Termux로 바로 보낼 수 있습니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
 // @supportURL   https://github.com/damanting0-cyber/tst/issues
@@ -55,7 +55,8 @@
         link: 'M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z',
         add: 'M14 10H3v2h11v-2zm0-4H3v2h11V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM3 16h7v-2H3v2z',
         trash: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
-        close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
+        close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+        download: 'M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z'
     };
     const JAR_BODY = 'M8 6.5h8v1.2c2.1.8 3.2 2.3 3.2 4.4V18a3 3 0 0 1-3 3H7.8a3 3 0 0 1-3-3v-5.9c0-2.1 1.1-3.6 3.2-4.4z';
 
@@ -275,6 +276,31 @@
             transition: bottom .3s var(--uper-ease), transform .2s var(--uper-ease), opacity .2s;
         }
         #uper-jar:active { transform: scale(.9); }
+
+        /* ---- 카드 누름 3D 기울임: 빛 반사 레이어 ---- */
+        .uper-tilt-light {
+            position: absolute; inset: 0; z-index: 2147483000; pointer-events: none;
+            border-radius: inherit; opacity: 0;
+        }
+
+        /* ---- Termux로 보내기 (영상 페이지에서만, 유리통 위) ---- */
+        #uper-termux {
+            position: fixed; right: 20px; bottom: 76px; z-index: 2147483620;
+            width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--uper-surface); color: var(--uper-text);
+            box-shadow: 0 2px 8px rgba(0,0,0,.3);
+            opacity: 0; visibility: hidden; transform: scale(.6);
+            transition: bottom .3s var(--uper-ease), transform .2s var(--uper-ease),
+                opacity .2s, visibility 0s .2s;
+        }
+        #uper-termux.on {
+            opacity: 1; visibility: visible; transform: scale(1);
+            transition: bottom .3s var(--uper-ease), transform .25s var(--uper-ease), opacity .2s, visibility 0s;
+        }
+        #uper-termux.on:active { transform: scale(.88); }
+        #uper-termux.busy svg { animation: uper-termux-pulse .8s ease-in-out infinite; }
+        @keyframes uper-termux-pulse { 50% { opacity: .35; transform: translateY(2px); } }
         #uper-jar.pop { animation: uper-pop .45s var(--uper-ease); }
         #uper-jar .fill {
             transform-box: fill-box; transform-origin: center bottom;
@@ -706,7 +732,9 @@
 
     /* ---------- 롱프레스 (터치) ---------- */
     function isOurs(t) {
-        return popup.contains(t) || jar.contains(t) || sheet.contains(t) || scrim.contains(t) || snack.contains(t);
+        const fab = document.getElementById('uper-termux');
+        return popup.contains(t) || jar.contains(t) || sheet.contains(t) || scrim.contains(t) || snack.contains(t) ||
+            !!(fab && fab.contains(t));
     }
 
     // 댓글·설명·패널 안의 링크(타임스탬프 등)는 건드리지 않고, 섬네일 있는 영상 카드만 대상으로 함
@@ -1440,6 +1468,350 @@
         });
     }
 
+    /* ---------- 영상 카드 누름 3D 기울임 ----------
+       누른 곳이 화면 안쪽으로 들어가듯 기울고(가장자리 최대 15°, 크기 최대 -5%),
+       손을 떼면 눌린 만큼에서 튕김 없이 돌아오고, 꾹 누르기가 되면 톡 올라옴.
+       Web Animations API로 transform만 움직이고, 누르는 동안만 will-change. */
+    const TILT_DEG = 15;
+    const TILT_SCALE = 0.05;
+    const TILT_PRESS_MS = 440;
+    const TILT_HOLD_MS = 450;
+    const TILT_MOVE = 8;
+    const TILT_PERSP = 2.4;
+
+    function bindPressTilt() {
+        const easeOut = (t) => 1 - Math.pow(1 - t, 3);               // = cubic-bezier(.33, 1, .68, 1)
+        const state = new WeakMap();                                  // 카드 → 진행 상태
+        let cur = null;                                               // 지금 누르고 있는 카드
+        let start = null;
+        let holdTimer = null;
+
+        function frame(st, p) {
+            return {
+                transform: `perspective(${st.persp}px) rotateX(${(-st.ny * TILT_DEG * p).toFixed(3)}deg) ` +
+                    `rotateY(${(st.nx * TILT_DEG * p).toFixed(3)}deg) scale(${(1 - TILT_SCALE * p).toFixed(4)})`
+            };
+        }
+
+        // 지금 눌린 정도(0~1, 꾹 누르기 반동 때는 잠깐 음수)
+        function progress(st) {
+            if (!st || !st.fn) return 0;
+            const t = Math.min(performance.now() - st.t0, st.dur);
+            return st.fn(t);
+        }
+
+        // p(t) 함수를 따라 transform·빛을 움직임
+        function run(card, st, fn, dur, opts) {
+            if (st.anim) st.anim.cancel();
+            if (st.lightAnim) st.lightAnim.cancel();
+            st.fn = fn;
+            st.t0 = performance.now();
+            st.dur = dur;
+            if (opts && opts.easing) {
+                // 누를 때: 시작·끝 두 프레임 + 브라우저 이징 (가장 부드러움)
+                st.anim = card.animate([frame(st, fn(0)), frame(st, fn(dur))],
+                    { duration: dur, easing: opts.easing, fill: 'forwards' });
+                st.lightAnim = st.light.animate([{ opacity: Math.max(0, fn(0)) }, { opacity: Math.max(0, fn(dur)) }],
+                    { duration: dur, easing: opts.easing, fill: 'forwards' });
+            } else {
+                // 스프링: 곡선을 촘촘히 잘라서 그대로 재생
+                const n = 24;
+                const kf = [];
+                const lf = [];
+                for (let i = 0; i <= n; i++) {
+                    const p = fn(dur * i / n);
+                    kf.push(frame(st, p));
+                    lf.push({ opacity: Math.max(0, p) });
+                }
+                st.anim = card.animate(kf, { duration: dur, easing: 'linear', fill: 'forwards' });
+                st.lightAnim = st.light.animate(lf, { duration: dur, easing: 'linear', fill: 'forwards' });
+            }
+            return st.anim;
+        }
+
+        function cleanup(card, st) {
+            if (st.anim) st.anim.cancel();
+            if (st.lightAnim) st.lightAnim.cancel();
+            st.anim = st.lightAnim = null;
+            st.fn = null;
+            card.style.willChange = '';
+            if (st.light.isConnected) st.light.remove();
+            if (st.posSet) card.style.position = '';
+            state.delete(card);
+        }
+
+        // 손을 떼면: 지금 눌린 만큼에서 튕김 없이(임계 감쇠 스프링) 돌아옴
+        function release(card) {
+            const st = state.get(card);
+            if (!st) return;
+            const p0 = progress(st);
+            const w = 15;                                              // 고유 진동수 (1/s)
+            const dur = 480;
+            const anim = run(card, st, (t) => {
+                const k = w * t / 1000;
+                return p0 * (1 + k) * Math.exp(-k);
+            }, dur);
+            anim.onfinish = () => { if (state.get(card) === st && st.anim === anim) cleanup(card, st); };
+        }
+
+        // 꾹 누르기: 바닥에서 살짝 넘치듯 톡 올라옴 (감쇠가 약한 스프링)
+        function pop(card) {
+            const st = state.get(card);
+            if (!st) return;
+            const p0 = progress(st);
+            const w = 22;
+            const z = 0.55;                                            // 감쇠비 < 1 → 한 번 살짝 넘침
+            const wd = w * Math.sqrt(1 - z * z);
+            const dur = 520;
+            st.popped = true;
+            const anim = run(card, st, (t) => {
+                const s = t / 1000;
+                return p0 * Math.exp(-z * w * s) * (Math.cos(wd * s) + (z * w / wd) * Math.sin(wd * s));
+            }, dur);
+            anim.onfinish = () => { if (state.get(card) === st && st.anim === anim) cleanup(card, st); };
+        }
+
+        function press(card, x, y) {
+            const r = card.getBoundingClientRect();
+            if (r.width < 40 || r.height < 40) return false;
+            const old = state.get(card);
+            const p0 = old ? progress(old) : 0;
+            if (old) { if (old.anim) old.anim.cancel(); if (old.lightAnim) old.lightAnim.cancel(); }
+
+            // 누른 위치 (-1 ~ 1, 가장자리가 ±1)
+            const nx = Math.max(-1, Math.min(1, (x - (r.left + r.width / 2)) / (r.width / 2)));
+            const ny = Math.max(-1, Math.min(1, (y - (r.top + r.height / 2)) / (r.height / 2)));
+            const st = old || {};
+            st.nx = nx;
+            st.ny = ny;
+            st.persp = Math.round(Math.max(r.width, r.height) * TILT_PERSP);
+            st.popped = false;
+
+            // 빛: 누른 반대쪽 위에 흰 빛, 누른 쪽에 옅은 그늘
+            if (!st.light) st.light = h('div', { class: 'uper-tilt-light', 'aria-hidden': 'true' });
+            const hx = 50 - nx * 45;
+            const hy = Math.max(0, 50 - ny * 45 - 25);
+            const sx = 50 + nx * 50;
+            const sy = 50 + ny * 50;
+            st.light.style.background =
+                `radial-gradient(circle at ${hx}% ${hy}%, rgba(255,255,255,.22), rgba(255,255,255,0) 55%),` +
+                `radial-gradient(circle at ${sx}% ${sy}%, rgba(0,0,0,.18), rgba(0,0,0,0) 60%)`;
+            if (getComputedStyle(card).position === 'static') { card.style.position = 'relative'; st.posSet = true; }
+            if (!st.light.isConnected) card.appendChild(st.light);
+            card.style.willChange = 'transform';
+            state.set(card, st);
+
+            // 지금 눌린 정도에서 바닥(1)까지 ease-out
+            const span = Math.max(0, 1 - p0);
+            run(card, st, (t) => p0 + span * easeOut(t / TILT_PRESS_MS), TILT_PRESS_MS,
+                { easing: 'cubic-bezier(.33, 1, .68, 1)' });
+            return true;
+        }
+
+        function end() {
+            clearTimeout(holdTimer);
+            holdTimer = null;
+            if (!cur) return;
+            const card = cur;
+            cur = null;
+            start = null;
+            const st = state.get(card);
+            if (st && !st.popped) release(card);
+        }
+
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) { end(); return; }
+            const t = e.target;
+            if (isOurs(t)) return;
+            const link = videoLink(t);
+            if (!link) return;
+            const card = findCard(link);
+            const p = e.touches[0];
+            if (cur && cur !== card) end();
+            if (!press(card, p.clientX, p.clientY)) return;
+            cur = card;
+            start = { x: p.clientX, y: p.clientY };
+            clearTimeout(holdTimer);
+            holdTimer = setTimeout(() => {
+                holdTimer = null;
+                if (cur === card) pop(card);
+            }, TILT_HOLD_MS);
+        }, { capture: true, passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!cur || !start) return;
+            const p = e.touches[0];
+            if (p && Math.hypot(p.clientX - start.x, p.clientY - start.y) > TILT_MOVE) end();   // 스크롤이면 바로 풀림
+        }, { capture: true, passive: true });
+
+        ['touchend', 'touchcancel'].forEach((type) => {
+            document.addEventListener(type, end, { capture: true, passive: true });
+        });
+        window.addEventListener('scroll', () => { if (cur) end(); }, { passive: true, capture: true });
+    }
+
+    /* ---------- Termux로 보내기 ----------
+       Termux의 공유 수신 화면(TermuxFileReceiverActivity)을 intent URI로 직접 열어
+       ~/bin/termux-url-opener 가 영상 URL을 받게 함.
+       실패하면 navigator.share → 클립보드 복사 순으로 넘어감. */
+    const TERMUX_LOG = '[Uper/Termux]';
+    const TERMUX_WAIT_MS = 2000;      // 이 시간 안에 페이지가 가려지지 않으면 실패로 봄
+    const ID_RE = /^[\w-]{11}$/;
+
+    // 지금 보고 있는 영상 ID (클릭 시점의 주소에서 읽음 → 유튜브 페이지 이동 후에도 최신)
+    function currentVideoId() {
+        try {
+            const u = new URL(location.href);
+            const v = u.searchParams.get('v');
+            if (v && ID_RE.test(v)) return v;
+            const m = u.pathname.match(/^\/(?:shorts|live|embed)\/([\w-]{11})/);
+            if (m) return m[1];
+        } catch (e) { /* 아래로 */ }
+        return null;
+    }
+
+    // 재생목록·타임스탬프 등 파라미터를 버린 깔끔한 주소
+    function cleanWatchUrl(id) {
+        return 'https://www.youtube.com/watch?v=' + id;
+    }
+
+    function termuxIntent(url) {
+        return 'intent:#Intent;action=android.intent.action.SEND;type=text/plain;' +
+            'S.android.intent.extra.TEXT=' + encodeURIComponent(url) + ';' +
+            'component=com.termux/.filepicker.TermuxFileReceiverActivity;end';
+    }
+
+    // intent를 열고, 다른 앱으로 넘어가 페이지가 가려졌는지로 성공 여부를 판단
+    function openIntent(uri) {
+        return new Promise((resolve) => {
+            let done = false;
+            const finish = (ok, why) => {
+                if (done) return;
+                done = true;
+                document.removeEventListener('visibilitychange', onVis);
+                window.removeEventListener('pagehide', onHide);
+                window.removeEventListener('blur', onBlur);
+                clearTimeout(timer);
+                console.log(TERMUX_LOG, ok ? 'intent 성공으로 판단:' : 'intent 실패로 판단:', why);
+                resolve(ok);
+            };
+            const onVis = () => { if (document.hidden) finish(true, 'visibilitychange(hidden)'); };
+            const onHide = () => finish(true, 'pagehide');
+            let blurred = false;
+            const onBlur = () => { blurred = true; console.log(TERMUX_LOG, 'window blur 감지 (앱 전환 또는 브라우저 확인창일 수 있음)'); };
+            document.addEventListener('visibilitychange', onVis);
+            window.addEventListener('pagehide', onHide);
+            window.addEventListener('blur', onBlur);
+            const timer = setTimeout(() => {
+                finish(false, blurred
+                    ? `${TERMUX_WAIT_MS}ms 동안 페이지가 가려지지 않음 (blur는 있었음: 브라우저의 "앱에서 열기" 확인창이 떴을 가능성)`
+                    : `${TERMUX_WAIT_MS}ms 동안 아무 반응 없음 (Termux 미설치, 액티비티 이름 오류, 또는 브라우저가 intent를 막음)`);
+            }, TERMUX_WAIT_MS);
+
+            try {
+                // 사용자 탭 안에서 링크를 누르는 방식 (파이어폭스가 외부 앱 열기를 허용하는 경로)
+                const a = document.createElement('a');
+                a.href = uri;
+                a.rel = 'noopener';
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                console.log(TERMUX_LOG, 'intent 호출:', uri);
+                a.click();
+                a.remove();
+            } catch (e) {
+                console.warn(TERMUX_LOG, 'intent 호출 중 예외:', e);
+                finish(false, 'exception: ' + (e && e.message));
+            }
+        });
+    }
+
+    let termuxBusy = false;
+
+    async function sendToTermux(url, btn) {
+        if (termuxBusy) return;
+        termuxBusy = true;
+        if (btn) btn.classList.add('busy');
+        console.log(TERMUX_LOG, '보낼 주소:', url, '| 페이지:', location.href, '| UA:', navigator.userAgent);
+        try {
+            // 1) Termux 직접 호출
+            if (/Android/i.test(navigator.userAgent)) {
+                if (await openIntent(termuxIntent(url))) {
+                    showSnack('Termux로 보냈어요');
+                    return;
+                }
+            } else {
+                console.log(TERMUX_LOG, '안드로이드가 아니라 intent 건너뜀');
+            }
+
+            // 2) 공유창
+            if (navigator.share) {
+                try {
+                    await navigator.share({ url });
+                    console.log(TERMUX_LOG, 'navigator.share 완료');
+                    showSnack('Termux를 바로 못 열어서 공유창으로 보냈어요');
+                    return;
+                } catch (e) {
+                    console.warn(TERMUX_LOG, 'navigator.share 실패:', e && e.name, e && e.message);
+                    if (e && e.name === 'AbortError') {      // 사용자가 공유창을 닫음
+                        showSnack('공유를 취소했어요');
+                        return;
+                    }
+                }
+            } else {
+                console.log(TERMUX_LOG, 'navigator.share 없음');
+            }
+
+            // 3) 클립보드
+            try {
+                GM_setClipboard(url, 'text');
+            } catch (e) {
+                await copyText(url);
+            }
+            console.log(TERMUX_LOG, '클립보드 복사로 대체');
+            showSnack('Termux를 못 열어서 링크를 복사했어요');
+        } finally {
+            termuxBusy = false;
+            if (btn) btn.classList.remove('busy');
+        }
+    }
+
+    function bindTermux() {
+        // (1) 롱프레스 팝업에 'Termux' 항목
+        const popBtn = h('button', { class: 'uper-btn-reset termux-btn', type: 'button' }, icon('download', 20), 'Termux');
+        popup.insertBefore(popBtn, tipBtn);
+        bindTap(popBtn, () => {
+            if (!pending) return;
+            const url = cleanWatchUrl(pending.videoId);
+            hidePopup();
+            sendToTermux(url);
+        });
+
+        // (2) 영상·쇼츠 페이지에서 유리통 위에 뜨는 버튼 → 지금 보는 영상
+        const fab = h('button', {
+            id: 'uper-termux', class: 'uper-btn-reset', type: 'button', 'aria-label': 'Termux로 보내기'
+        }, icon('download', 22));
+        document.body.appendChild(fab);
+        bindTap(fab, () => {
+            const id = currentVideoId();          // 누르는 순간의 주소에서 읽음
+            if (!id) {
+                console.warn(TERMUX_LOG, '영상 ID를 찾지 못함:', location.href);
+                showSnack('영상 페이지에서만 보낼 수 있어요');
+                return;
+            }
+            sendToTermux(cleanWatchUrl(id), fab);
+        });
+
+        const sync = () => {
+            fab.classList.toggle('on', !!currentVideoId());
+            const jb = parseFloat(jar.style.bottom) || 16;
+            fab.style.bottom = (jb + 56) + 'px';
+        };
+        sync();
+        setInterval(sync, 500);
+        window.addEventListener('yt-navigate-finish', sync);
+        window.addEventListener('popstate', sync);
+    }
+
     /* ---------- 실행 ---------- */
     try {
         injectStyle();
@@ -1449,6 +1821,8 @@
         bindHold();
         bindSpeedHold();
         patchVideoFullscreen();
+        bindTermux();
+        bindPressTilt();
         renderList();
         syncTheme();
         updateLayout();
