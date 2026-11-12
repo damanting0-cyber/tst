@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.12.0
-// @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/Termux/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 Termux로 바로 보낼 수 있습니다.
+// @version      1.13.0
+// @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
 // @supportURL   https://github.com/damanting0-cyber/tst/issues
@@ -35,8 +35,14 @@
         'ytm-video-renderer', 'ytm-shorts-lockup-view-model',
         'ytm-reel-item-renderer', 'ytd-reel-item-renderer',
         'ytd-rich-item-renderer', 'ytd-video-renderer',
-        'ytd-compact-video-renderer', 'yt-lockup-view-model'
+        'ytd-compact-video-renderer', 'yt-lockup-view-model',
+        // 채널·재생목록·검색 화면의 카드
+        'ytm-playlist-video-renderer', 'ytm-playlist-panel-video-renderer', 'ytm-grid-video-renderer',
+        'ytm-media-item', 'ytm-video-card-renderer', 'ytm-shorts-lockup-view-model-v2',
+        'ytd-grid-video-renderer', 'ytd-playlist-video-renderer', 'ytd-playlist-panel-video-renderer'
     ].join(',');
+    // 패널 안이라도 카드로 다루는 것 (영상 페이지의 재생목록)
+    const PANEL_CARD_SEL = 'ytm-playlist-panel-video-renderer, ytd-playlist-panel-video-renderer';
     // 롱프레스 대상에서 빼는 영역 (댓글, 설명란, 패널)
     const SKIP_SEL = [
         'ytm-comment-thread-renderer', 'ytm-comment-renderer', 'ytm-comments-entry-point-header-renderer',
@@ -135,8 +141,24 @@
         } catch (e) { return null; }
     }
 
+    // 영상 카드 찾기: 아는 카드 태그가 있으면 그것, 없으면 같은 영상만 담고 있는 가장 바깥 상자
+    // (화면마다 구조가 달라 썸네일만 기울거나 제목이 빠지던 문제를 통일)
     function findCard(link) {
-        return link.closest(CARD_SEL) || link;
+        const known = link.closest(CARD_SEL);
+        if (known) return known;
+        const id = idFromHref(link.href);
+        let best = link;
+        for (let n = link.parentElement, k = 0; n && n !== document.body && k < 6; k++, n = n.parentElement) {
+            const r = n.getBoundingClientRect();
+            if (r.height > innerHeight * 0.7) break;
+            let mixed = false;
+            for (const a of n.querySelectorAll(LINK_SEL)) {
+                if (idFromHref(a.href) !== id) { mixed = true; break; }
+            }
+            if (mixed) break;                       // 다른 영상이 섞이면 카드보다 커진 것
+            best = n;
+        }
+        return best;
     }
 
     // 카드 안에서 가장 큰 이미지(섬네일)를 팝업 기준점으로 사용
@@ -216,6 +238,7 @@
             --uper-red: #ff0033;
             --uper-sheet: #212121;
             --uper-surface: #272727;
+            --uper-glass: rgba(39,39,39,.62);
             --uper-text: #f1f1f1;
             --uper-text2: #aaaaaa;
             --uper-divider: rgba(255,255,255,.1);
@@ -229,6 +252,7 @@
         html.uper-light {
             --uper-sheet: #ffffff;
             --uper-surface: #ffffff;
+            --uper-glass: rgba(255,255,255,.62);
             --uper-text: #0f0f0f;
             --uper-text2: #606060;
             --uper-divider: rgba(0,0,0,.1);
@@ -275,8 +299,9 @@
             position: fixed; right: 16px; bottom: 16px; z-index: 2147483620;
             width: 48px; height: 48px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            background: var(--uper-surface); color: var(--uper-text);
-            box-shadow: 0 2px 8px rgba(0,0,0,.3);
+            background: var(--uper-glass); color: var(--uper-text);
+            -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
+            box-shadow: 0 2px 8px rgba(0,0,0,.25);
             transition: bottom .3s var(--uper-ease), transform .2s var(--uper-ease), opacity .2s;
         }
         #uper-jar:active { transform: scale(.9); }
@@ -294,13 +319,14 @@
         html.uper-light .uper-tilt-plate { background: #f2f2f2; box-shadow: 0 6px 18px rgba(0,0,0,.12); }
         .uper-tilt-light { z-index: 2147483000; }
 
-        /* ---- Termux로 보내기 (영상 페이지에서만, 유리통 위) ---- */
+        /* ---- 다운 버튼 (영상 페이지에서만, 유리통 왼쪽) ---- */
         #uper-termux {
-            position: fixed; right: 20px; bottom: 76px; z-index: 2147483620;
-            width: 40px; height: 40px; border-radius: 50%;
+            position: fixed; right: 76px; bottom: 16px; z-index: 2147483620;
+            width: 48px; height: 48px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            background: var(--uper-surface); color: var(--uper-text);
-            box-shadow: 0 2px 8px rgba(0,0,0,.3);
+            background: var(--uper-glass); color: var(--uper-text);
+            -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
+            box-shadow: 0 2px 8px rgba(0,0,0,.25);
             opacity: 0; visibility: hidden; transform: scale(.6);
             transition: bottom .3s var(--uper-ease), transform .2s var(--uper-ease),
                 opacity .2s, visibility 0s .2s;
@@ -312,6 +338,44 @@
         #uper-termux.on:active { transform: scale(.88); }
         #uper-termux.busy svg { animation: uper-termux-pulse .8s ease-in-out infinite; }
         @keyframes uper-termux-pulse { 50% { opacity: .35; transform: translateY(2px); } }
+
+        /* ---- 다운 형식 고르기 / MP4 데이터 주의 ---- */
+        #uper-dl-scrim {
+            position: fixed; inset: 0; z-index: 2147483638; background: rgba(0,0,0,.5);
+            opacity: 0; visibility: hidden; transition: opacity .2s linear, visibility 0s .2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #uper-dl-scrim.open { opacity: 1; visibility: visible; transition: opacity .2s linear, visibility 0s; }
+        #uper-dl {
+            position: fixed; left: 50%; bottom: 24px; z-index: 2147483639;
+            width: min(360px, calc(100vw - 32px)); box-sizing: border-box; padding: 20px 16px 12px;
+            border-radius: 20px; background: var(--uper-sheet); color: var(--uper-text);
+            box-shadow: var(--uper-shadow); font-family: var(--uper-font);
+            opacity: 0; visibility: hidden; transform: translate(-50%, 24px) scale(.97);
+            transition: opacity .15s linear, transform .2s var(--uper-ease-out), visibility 0s .2s;
+        }
+        #uper-dl.open {
+            opacity: 1; visibility: visible; transform: translate(-50%, 0);
+            transition: opacity .2s linear, transform .35s var(--uper-ease), visibility 0s;
+        }
+        #uper-dl h2 { margin: 0 4px 4px; font-size: 16px; font-weight: 600; line-height: 22px; }
+        #uper-dl p { margin: 0 4px 16px; font-size: 13px; line-height: 19px; color: var(--uper-text2); }
+        #uper-dl .opts { display: flex; gap: 8px; }
+        #uper-dl .opt {
+            flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+            padding: 14px; border-radius: 14px; background: var(--uper-press); text-align: left;
+            transition: transform .15s var(--uper-ease), background-color .15s;
+        }
+        #uper-dl .opt:active { transform: scale(.97); }
+        #uper-dl .opt b { font-size: 16px; font-weight: 600; }
+        #uper-dl .opt span { font-size: 12px; color: var(--uper-text2); }
+        #uper-dl .acts { display: flex; justify-content: flex-end; gap: 4px; margin-top: 12px; }
+        #uper-dl .act {
+            height: 36px; padding: 0 16px; border-radius: 18px; font-size: 14px; font-weight: 500;
+            transition: background-color .15s;
+        }
+        #uper-dl .act:active { background: var(--uper-press); }
+        #uper-dl .act.primary { background: var(--uper-text); color: var(--uper-sheet); }
         #uper-jar.pop { animation: uper-pop .45s var(--uper-ease); }
         #uper-jar .fill {
             transform-box: fill-box; transform-origin: center bottom;
@@ -745,13 +809,14 @@
     function isOurs(t) {
         const fab = document.getElementById('uper-termux');
         return popup.contains(t) || jar.contains(t) || sheet.contains(t) || scrim.contains(t) || snack.contains(t) ||
-            !!(fab && fab.contains(t));
+            !!(fab && fab.contains(t)) || !!(dlBox && (dlBox.contains(t) || dlScrim.contains(t)));
     }
 
     // 댓글·설명·패널 안의 링크(타임스탬프 등)는 건드리지 않고, 섬네일 있는 영상 카드만 대상으로 함
     function videoLink(t) {
         const link = t && t.closest ? t.closest(LINK_SEL) : null;
-        if (!link || link.closest(SKIP_SEL)) return null;
+        if (!link) return null;
+        if (link.closest(SKIP_SEL) && !link.closest(PANEL_CARD_SEL)) return null;
         if (findCard(link) === link && !link.querySelector('img')) return null;
         return link;
     }
@@ -1736,7 +1801,7 @@
     }
 
     // Termux 서버로 전송. 성공하면 true
-    function sendViaServer(url) {
+    function sendViaServer(url, format) {
         return new Promise((resolve) => {
             if (typeof GM_xmlhttpRequest !== 'function') {
                 console.warn(TERMUX_LOG, 'GM_xmlhttpRequest 없음 (스크립트를 다시 설치해 권한을 받아야 함)');
@@ -1746,7 +1811,7 @@
             const t0 = Date.now();
             GM_xmlhttpRequest({
                 method: 'GET',
-                url: TERMUX_SERVER + '/send?url=' + encodeURIComponent(url),
+                url: TERMUX_SERVER + '/send?url=' + encodeURIComponent(url) + '&format=' + format,
                 headers: { 'X-Uper': '1' },          // 다른 웹페이지가 서버를 함부로 부르지 못하게
                 timeout: TERMUX_TIMEOUT_MS,
                 onload: (r) => {
@@ -1767,15 +1832,15 @@
 
     let termuxBusy = false;
 
-    async function sendToTermux(url, btn) {
+    async function sendToTermux(url, format, btn) {
         if (termuxBusy) return;
         termuxBusy = true;
         if (btn) btn.classList.add('busy');
-        console.log(TERMUX_LOG, '보낼 주소:', url, '| 페이지:', location.href);
+        console.log(TERMUX_LOG, '보낼 주소:', url, '| 형식:', format, '| 페이지:', location.href);
         try {
             // 1) Termux 서버 → 공유창 없이 바로 저장
-            if (await sendViaServer(url)) {
-                showSnack('Termux로 보냈어요');
+            if (await sendViaServer(url, format)) {
+                showSnack(format === 'mp4' ? 'MP4 다운로드를 시작했어요' : 'MP3 다운로드를 시작했어요');
                 return;
             }
 
@@ -1814,40 +1879,88 @@
         }
     }
 
+    // 다운 형식 고르기 → (MP4면) 데이터 주의 → 전송
+    let dlScrim = null;
+    let dlBox = null;
+    function closeDl() {
+        if (!dlBox) return;
+        dlBox.classList.remove('open');
+        dlScrim.classList.remove('open');
+    }
+
+    function chooseDownload(url, btn) {
+        if (!dlBox) {
+            dlScrim = h('div', { id: 'uper-dl-scrim' });
+            dlBox = h('div', { id: 'uper-dl', role: 'dialog', 'aria-label': '다운로드' });
+            document.body.appendChild(dlScrim);
+            document.body.appendChild(dlBox);
+            bindTap(dlScrim, closeDl);
+        }
+        const go = (format) => { closeDl(); sendToTermux(url, format, btn); };
+
+        // 1단계: 형식
+        const mp3 = h('button', { class: 'uper-btn-reset opt', type: 'button' },
+            h('b', { text: 'MP3' }), h('span', { text: '음악만 · 용량 작음' }));
+        const mp4 = h('button', { class: 'uper-btn-reset opt', type: 'button' },
+            h('b', { text: 'MP4' }), h('span', { text: '영상 · 데이터 많이 사용' }));
+        const cancel = h('button', { class: 'uper-btn-reset act', type: 'button', text: '취소' });
+        dlBox.textContent = '';
+        dlBox.append(h('h2', { text: '어떤 형식으로 받을까요?' }), h('div', { class: 'opts' }, mp3, mp4),
+            h('div', { class: 'acts' }, cancel));
+        bindTap(cancel, closeDl);
+        bindTap(mp3, () => go('mp3'));
+
+        // 2단계: MP4는 데이터 주의 한 번 더
+        bindTap(mp4, () => {
+            const back = h('button', { class: 'uper-btn-reset act', type: 'button', text: '취소' });
+            const ok = h('button', { class: 'uper-btn-reset act primary', type: 'button', text: '받기' });
+            dlBox.textContent = '';
+            dlBox.append(
+                h('h2', { text: '데이터 사용에 주의하세요' }),
+                h('p', { text: '영상(MP4)은 음악보다 용량이 훨씬 커요. 와이파이가 아니면 모바일 데이터가 많이 쓰이고 요금이 나올 수 있어요.' }),
+                h('div', { class: 'acts' }, back, ok));
+            bindTap(back, closeDl);
+            bindTap(ok, () => go('mp4'));
+        });
+
+        dlScrim.classList.add('open');
+        dlBox.classList.add('open');
+    }
+
     function bindTermux() {
-        // (1) 롱프레스 팝업에 'Termux' 항목
-        const popBtn = h('button', { class: 'uper-btn-reset termux-btn', type: 'button' }, icon('download', 20), 'Termux');
+        // (1) 롱프레스 팝업에 '다운' 항목
+        const popBtn = h('button', { class: 'uper-btn-reset termux-btn', type: 'button' }, icon('download', 20), '다운');
         popup.insertBefore(popBtn, tipBtn);
         bindTap(popBtn, () => {
             if (!pending) return;
             const url = cleanWatchUrl(pending.videoId);
             hidePopup();
-            sendToTermux(url);
+            chooseDownload(url);
         });
 
-        // (2) 영상·쇼츠 페이지에서 유리통 위에 뜨는 버튼 → 지금 보는 영상
+        // (2) 영상·쇼츠 페이지에서 유리통 왼쪽에 뜨는 버튼 → 지금 보는 영상
         const fab = h('button', {
-            id: 'uper-termux', class: 'uper-btn-reset', type: 'button', 'aria-label': 'Termux로 보내기'
-        }, icon('download', 22));
+            id: 'uper-termux', class: 'uper-btn-reset', type: 'button', 'aria-label': '다운로드'
+        }, icon('download', 24));
         document.body.appendChild(fab);
         bindTap(fab, () => {
             const id = currentVideoId();          // 누르는 순간의 주소에서 읽음
             if (!id) {
                 console.warn(TERMUX_LOG, '영상 ID를 찾지 못함:', location.href);
-                showSnack('영상 페이지에서만 보낼 수 있어요');
+                showSnack('영상 페이지에서만 받을 수 있어요');
                 return;
             }
-            sendToTermux(cleanWatchUrl(id), fab);
+            chooseDownload(cleanWatchUrl(id), fab);
         });
 
         const sync = () => {
             fab.classList.toggle('on', !!currentVideoId());
-            const jb = parseFloat(jar.style.bottom) || 16;
-            fab.style.bottom = (jb + 56) + 'px';
+            const jb = jar.style.bottom || '16px';
+            if (fab.style.bottom !== jb) fab.style.bottom = jb;      // 유리통과 같은 높이
         };
         sync();
         setInterval(sync, 500);
-        window.addEventListener('yt-navigate-finish', sync);
+        window.addEventListener('yt-navigate-finish', () => { closeDl(); sync(); });
         window.addEventListener('popstate', sync);
     }
 
