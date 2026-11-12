@@ -3,11 +3,13 @@
 #   curl -sL https://raw.githubusercontent.com/damanting0-cyber/tst/main/termux/setup.sh | bash
 set -e
 mkdir -p ~/bin
-curl -sL -o ~/bin/uper-server.py https://raw.githubusercontent.com/damanting0-cyber/tst/main/termux/uper-server.py
+# 주소 뒤에 시각을 붙여 GitHub의 캐시(최대 5분 전 파일)를 피함
+curl -sL -o ~/bin/uper-server.py "https://raw.githubusercontent.com/damanting0-cyber/tst/main/termux/uper-server.py?$(date +%s)"
 chmod +x ~/bin/uper-server.py
 command -v python >/dev/null || pkg install -y python
 command -v ffmpeg >/dev/null || pkg install -y ffmpeg          # MP3 변환·MP4 합치기에 필요
-command -v yt-dlp >/dev/null || pip install -U yt-dlp
+command -v node >/dev/null || pkg install -y nodejs          # yt-dlp가 유튜브를 제대로 읽는 데 필요
+pip install -U yt-dlp >/dev/null                                # 유튜브 변경에 맞춰 항상 최신으로
 [ -d ~/storage ] || termux-setup-storage                          # /sdcard 접근 권한
 command -v termux-media-scan >/dev/null || pkg install -y termux-api   # 받은 파일을 삼성뮤직·갤러리에 등록
 

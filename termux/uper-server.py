@@ -50,6 +50,11 @@ def command(fmt, url):
               '--print', 'after_move:UPER_FILE %(filepath)s',
               '--progress-template', 'download:UPER_PROG %(progress._percent_str)s|%(progress._eta_str)s|%(progress._speed_str)s',
               '--progress-template', 'postprocess:UPER_PP %(progress.postprocessor)s']
+    # 유튜브는 이제 JavaScript 실행기가 있어야 모든 형식을 제대로 줌 (없으면 경고 + 일부 형식 누락)
+    if shutil.which('deno'):
+        common += ['--js-runtimes', 'deno']
+    elif shutil.which('node'):
+        common += ['--js-runtimes', 'node']
     if fmt == 'm4a':
         # 유튜브의 AAC(m4a) 소리를 그대로 저장 → 다시 압축하지 않아 빠르고 음질 손실 없음
         return [ytdlp, '-f', 'ba[ext=m4a]/ba', '-x', '--audio-format', 'm4a',
@@ -172,7 +177,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         if u.path == '/ping':
-            return self.reply(200, 'ok v5')
+            return self.reply(200, 'ok v6')
         if self.headers.get('X-Uper') != '1':
             return self.reply(403, 'forbidden')
         if u.path == '/status':
