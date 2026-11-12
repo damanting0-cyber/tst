@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.11.0
+// @version      1.11.1
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/Termux/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 Termux로 바로 보낼 수 있습니다.
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -70,6 +70,8 @@
     let holdStart = null;
     let holdFired = false;
     let justHeld = false;
+    let closeTapUntil = 0;       // 팝업을 닫은 그 탭이 영상으로 이동하지 않도록 막는 시각
+    let closingTouch = false;    // 지금 터치는 팝업을 닫기 위한 것 (새 롱프레스·기울임을 시작하지 않음)
     let snackTimer = null;
     let undoState = null;
     let lastCount = -1;
@@ -277,11 +279,18 @@
         }
         #uper-jar:active { transform: scale(.9); }
 
-        /* ---- 카드 누름 3D 기울임: 빛 반사 레이어 ---- */
-        .uper-tilt-light {
-            position: absolute; inset: 0; z-index: 2147483000; pointer-events: none;
-            border-radius: inherit; opacity: 0;
+        /* ---- 카드 누름 3D 기울임: 카드 판(여백 포함) + 빛 반사 레이어 ---- */
+        .uper-tilt-card { isolation: isolate; }
+        .uper-tilt-plate, .uper-tilt-light {
+            position: absolute; inset: -8px; pointer-events: none;
+            border-radius: 16px; opacity: 0;
         }
+        .uper-tilt-plate {
+            z-index: -1; background: var(--uper-surface);
+            box-shadow: 0 6px 18px rgba(0,0,0,.35);
+        }
+        html.uper-light .uper-tilt-plate { background: #f2f2f2; box-shadow: 0 6px 18px rgba(0,0,0,.12); }
+        .uper-tilt-light { z-index: 2147483000; }
 
         /* ---- Termux로 보내기 (영상 페이지에서만, 유리통 위) ---- */
         #uper-termux {
@@ -747,8 +756,17 @@
 
     function bindHold() {
         document.addEventListener('touchstart', (e) => {
-            if (e.touches.length !== 1) return;
+            closingTouch = false;
             const t = e.target;
+            // 팝업이 열려 있을 때 바깥을 건드리면 그 순간 닫음
+            // (click을 기다리면 유튜브가 터치를 가로채 click이 안 오는 경우가 있어 한 번에 안 닫혔음)
+            if (popupOpen && !popup.contains(t)) {
+                hidePopup();
+                closingTouch = true;
+                closeTapUntil = Date.now() + 800;
+                return;
+            }
+            if (e.touches.length !== 1) return;
             if (isOurs(t)) return;
 
             const link = videoLink(t);
@@ -797,10 +815,16 @@
                 justHeld = false;
                 return;
             }
-            if (!popupOpen || popup.contains(e.target)) return;
-            hidePopup();
             // 팝업 닫으려고 다른 영상을 탭한 경우에만 이동을 막음.
             // 버튼(답글 더보기, 댓글 열기 등)은 그대로 동작하게 둠
+            if (Date.now() < closeTapUntil && videoLink(e.target)) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeTapUntil = 0;
+                return;
+            }
+            if (!popupOpen || popup.contains(e.target)) return;
+            hidePopup();
             if (videoLink(e.target)) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1472,8 +1496,9 @@
        누른 곳이 화면 안쪽으로 들어가듯 기울고(가장자리 최대 15°, 크기 최대 -5%),
        손을 떼면 눌린 만큼에서 튕김 없이 돌아오고, 꾹 누르기가 되면 톡 올라옴.
        Web Animations API로 transform만 움직이고, 누르는 동안만 will-change. */
-    const TILT_DEG = 15;
-    const TILT_SCALE = 0.05;
+    const TILT_DEG = 6;
+    const TILT_SCALE = 0.03;
+    const TILT_PAD = 8;              // 카드 판이 내용보다 바깥으로 나오는 여백(px)
     const TILT_PRESS_MS = 440;
     const TILT_HOLD_MS = 450;
     const TILT_MOVE = 8;
@@ -1482,6 +1507,7 @@
     function bindPressTilt() {
         const easeOut = (t) => 1 - Math.pow(1 - t, 3);               // = cubic-bezier(.33, 1, .68, 1)
         const state = new WeakMap();                                  // 카드 → 진행 상태
+        const plateOp = (p) => Math.min(1, Math.max(0, p) * 3);       // 판은 누르자마자 빨리 나타남
         let cur = null;                                               // 지금 누르고 있는 카드
         let start = null;
         let holdTimer = null;
@@ -1504,6 +1530,7 @@
         function run(card, st, fn, dur, opts) {
             if (st.anim) st.anim.cancel();
             if (st.lightAnim) st.lightAnim.cancel();
+            if (st.plateAnim) st.plateAnim.cancel();
             st.fn = fn;
             st.t0 = performance.now();
             st.dur = dur;
@@ -1512,6 +1539,8 @@
                 st.anim = card.animate([frame(st, fn(0)), frame(st, fn(dur))],
                     { duration: dur, easing: opts.easing, fill: 'forwards' });
                 st.lightAnim = st.light.animate([{ opacity: Math.max(0, fn(0)) }, { opacity: Math.max(0, fn(dur)) }],
+                    { duration: dur, easing: opts.easing, fill: 'forwards' });
+                st.plateAnim = st.plate.animate([{ opacity: plateOp(fn(0)) }, { opacity: plateOp(fn(dur)) }],
                     { duration: dur, easing: opts.easing, fill: 'forwards' });
             } else {
                 // 스프링: 곡선을 촘촘히 잘라서 그대로 재생
@@ -1525,6 +1554,8 @@
                 }
                 st.anim = card.animate(kf, { duration: dur, easing: 'linear', fill: 'forwards' });
                 st.lightAnim = st.light.animate(lf, { duration: dur, easing: 'linear', fill: 'forwards' });
+                st.plateAnim = st.plate.animate(lf.map((f) => ({ opacity: plateOp(f.opacity) })),
+                    { duration: dur, easing: 'linear', fill: 'forwards' });
             }
             return st.anim;
         }
@@ -1532,11 +1563,18 @@
         function cleanup(card, st) {
             if (st.anim) st.anim.cancel();
             if (st.lightAnim) st.lightAnim.cancel();
-            st.anim = st.lightAnim = null;
+            if (st.plateAnim) st.plateAnim.cancel();
+            st.anim = st.lightAnim = st.plateAnim = null;
             st.fn = null;
             card.style.willChange = '';
             if (st.light.isConnected) st.light.remove();
-            if (st.posSet) card.style.position = '';
+            if (st.plate && st.plate.isConnected) st.plate.remove();
+            card.classList.remove('uper-tilt-card');
+            if (st.saved) {
+                card.style.position = st.saved.position;
+                card.style.overflow = st.saved.overflow;
+                st.saved = null;
+            }
             state.delete(card);
         }
 
@@ -1576,7 +1614,11 @@
             if (r.width < 40 || r.height < 40) return false;
             const old = state.get(card);
             const p0 = old ? progress(old) : 0;
-            if (old) { if (old.anim) old.anim.cancel(); if (old.lightAnim) old.lightAnim.cancel(); }
+            if (old) {
+                if (old.anim) old.anim.cancel();
+                if (old.lightAnim) old.lightAnim.cancel();
+                if (old.plateAnim) old.plateAnim.cancel();
+            }
 
             // 누른 위치 (-1 ~ 1, 가장자리가 ±1)
             const nx = Math.max(-1, Math.min(1, (x - (r.left + r.width / 2)) / (r.width / 2)));
@@ -1584,11 +1626,12 @@
             const st = old || {};
             st.nx = nx;
             st.ny = ny;
-            st.persp = Math.round(Math.max(r.width, r.height) * TILT_PERSP);
+            st.persp = Math.round((Math.max(r.width, r.height) + TILT_PAD * 2) * TILT_PERSP);
             st.popped = false;
 
             // 빛: 누른 반대쪽 위에 흰 빛, 누른 쪽에 옅은 그늘
             if (!st.light) st.light = h('div', { class: 'uper-tilt-light', 'aria-hidden': 'true' });
+            if (!st.plate) st.plate = h('div', { class: 'uper-tilt-plate', 'aria-hidden': 'true' });
             const hx = 50 - nx * 45;
             const hy = Math.max(0, 50 - ny * 45 - 25);
             const sx = 50 + nx * 50;
@@ -1596,7 +1639,15 @@
             st.light.style.background =
                 `radial-gradient(circle at ${hx}% ${hy}%, rgba(255,255,255,.22), rgba(255,255,255,0) 55%),` +
                 `radial-gradient(circle at ${sx}% ${sy}%, rgba(0,0,0,.18), rgba(0,0,0,0) 60%)`;
-            if (getComputedStyle(card).position === 'static') { card.style.position = 'relative'; st.posSet = true; }
+            const cs = getComputedStyle(card);
+            if (!st.saved) {
+                st.saved = { position: card.style.position, overflow: card.style.overflow };
+                if (cs.position === 'static') card.style.position = 'relative';
+                // 판의 여백이 카드 경계에서 잘리지 않도록
+                if (cs.overflow !== 'visible') card.style.overflow = 'visible';
+            }
+            card.classList.add('uper-tilt-card');
+            if (!st.plate.isConnected) card.insertBefore(st.plate, card.firstChild);
             if (!st.light.isConnected) card.appendChild(st.light);
             card.style.willChange = 'transform';
             state.set(card, st);
@@ -1621,6 +1672,7 @@
 
         document.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) { end(); return; }
+            if (closingTouch) return;
             const t = e.target;
             if (isOurs(t)) return;
             const link = videoLink(t);
@@ -1655,7 +1707,8 @@
        ~/bin/termux-url-opener 가 영상 URL을 받게 함.
        실패하면 navigator.share → 클립보드 복사 순으로 넘어감. */
     const TERMUX_LOG = '[Uper/Termux]';
-    const TERMUX_WAIT_MS = 2000;      // 이 시간 안에 페이지가 가려지지 않으면 실패로 봄
+    const TERMUX_WAIT_MS = 600;       // 이 시간 안에 앱 전환 조짐이 없으면 실패로 봄
+    const TERMUX_WAIT_BLUR_MS = 4000; // 브라우저 확인창 등으로 포커스만 빠졌을 때는 더 기다림
     const ID_RE = /^[\w-]{11}$/;
 
     // 지금 보고 있는 영상 ID (클릭 시점의 주소에서 읽음 → 유튜브 페이지 이동 후에도 최신)
@@ -1698,14 +1751,18 @@
             const onVis = () => { if (document.hidden) finish(true, 'visibilitychange(hidden)'); };
             const onHide = () => finish(true, 'pagehide');
             let blurred = false;
-            const onBlur = () => { blurred = true; console.log(TERMUX_LOG, 'window blur 감지 (앱 전환 또는 브라우저 확인창일 수 있음)'); };
+            const onBlur = () => {
+                if (blurred) return;
+                blurred = true;
+                console.log(TERMUX_LOG, 'window blur 감지 (앱 전환 또는 브라우저 확인창) → 판단을 미룸');
+                clearTimeout(timer);
+                timer = setTimeout(() => finish(false, `blur 후 ${TERMUX_WAIT_BLUR_MS}ms 동안 앱으로 넘어가지 않음`), TERMUX_WAIT_BLUR_MS);
+            };
             document.addEventListener('visibilitychange', onVis);
             window.addEventListener('pagehide', onHide);
             window.addEventListener('blur', onBlur);
-            const timer = setTimeout(() => {
-                finish(false, blurred
-                    ? `${TERMUX_WAIT_MS}ms 동안 페이지가 가려지지 않음 (blur는 있었음: 브라우저의 "앱에서 열기" 확인창이 떴을 가능성)`
-                    : `${TERMUX_WAIT_MS}ms 동안 아무 반응 없음 (Termux 미설치, 액티비티 이름 오류, 또는 브라우저가 intent를 막음)`);
+            let timer = setTimeout(() => {
+                finish(false, `${TERMUX_WAIT_MS}ms 동안 아무 반응 없음 (Termux 미설치, 액티비티 이름 오류, 또는 브라우저가 intent를 막음)`);
             }, TERMUX_WAIT_MS);
 
             try {
@@ -1761,14 +1818,21 @@
                 console.log(TERMUX_LOG, 'navigator.share 없음');
             }
 
-            // 3) 클립보드
+            // 3) 클립보드 + 직접 누르는 '공유' 버튼
             try {
                 GM_setClipboard(url, 'text');
             } catch (e) {
                 await copyText(url);
             }
             console.log(TERMUX_LOG, '클립보드 복사로 대체');
-            showSnack('Termux를 못 열어서 링크를 복사했어요');
+            if (navigator.share) {
+                showSnack('Termux를 못 열어서 링크를 복사했어요', '공유', () => {
+                    hideSnack();
+                    navigator.share({ url }).catch((e) => console.warn(TERMUX_LOG, '공유 버튼에서도 실패:', e && e.name));
+                });
+            } else {
+                showSnack('Termux를 못 열어서 링크를 복사했어요');
+            }
         } finally {
             termuxBusy = false;
             if (btn) btn.classList.remove('busy');
