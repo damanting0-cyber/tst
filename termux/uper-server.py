@@ -16,6 +16,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import urllib.parse
 from datetime import datetime
 
@@ -34,12 +35,46 @@ def command(fmt, url):
     if fmt == 'mp3':
         return [ytdlp, '-x', '--audio-format', 'mp3', '--audio-quality', '0',
                 '--embed-thumbnail', '--add-metadata', '--no-playlist',
+                '--print', 'after_move:UPER_FILE %(filepath)s', '--no-simulate',
                 '-o', os.path.join(MUSIC_DIR, NAME), url]
     if fmt == 'mp4':
         return [ytdlp, '-f', 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b',
                 '--merge-output-format', 'mp4', '--no-playlist',
+                '--print', 'after_move:UPER_FILE %(filepath)s', '--no-simulate',
                 '-o', os.path.join(VIDEO_DIR, NAME), url]
     return [OPENER, url]
+
+
+def media_scan(path):
+    """새 파일을 안드로이드 미디어 목록에 등록해야 삼성뮤직·갤러리에 바로 보인다.
+    (Termux가 직접 쓴 파일은 자동으로 등록되지 않음)"""
+    if shutil.which('termux-media-scan'):           # pkg install termux-api + Termux:API 앱
+        r = subprocess.run(['termux-media-scan', path], capture_output=True, text=True)
+        log(f'미디어 등록(termux-media-scan) {r.returncode}: {path}')
+        if r.returncode == 0:
+            return
+    # Termux:API가 없을 때: 안드로이드 미디어 스캐너에 직접 알림
+    uri = 'file://' + urllib.parse.quote(path)
+    r = subprocess.run(['am', 'broadcast', '--user', '0', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE',
+                        '-d', uri], capture_output=True, text=True)
+    log(f'미디어 등록(am broadcast) {r.returncode}: {path}')
+
+
+def run_download(cmd):
+    """yt-dlp 실행 → 끝난 파일을 미디어 목록에 등록"""
+    with open(LOG, 'a', encoding='utf-8') as out:
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=out, text=True, start_new_session=True)
+        files = []
+        for line in p.stdout:
+            if line.startswith('UPER_FILE '):
+                files.append(line[len('UPER_FILE '):].strip())
+            else:
+                out.write(line)
+        p.wait()
+    log(f'끝 (코드 {p.returncode}): {files or "파일 없음"}')
+    for f in files:
+        if os.path.exists(f):
+            media_scan(f)
 
 
 def log(msg):
@@ -81,8 +116,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif not os.access(OPENER, os.X_OK):
             log(f'실행 불가: {OPENER}')
             return self.reply(500, 'termux-url-opener not found')
-        out = open(LOG, 'a', encoding='utf-8')
-        subprocess.Popen(cmd, stdout=out, stderr=out, start_new_session=True)
+        if fmt:
+            threading.Thread(target=run_download, args=(cmd,), daemon=True).start()
+        else:
+            out = open(LOG, 'a', encoding='utf-8')
+            subprocess.Popen(cmd, stdout=out, stderr=out, start_new_session=True)
         log(f'시작({fmt or "opener"}): {url}')
         return self.reply(200, 'ok ' + (fmt or 'opener'))
 

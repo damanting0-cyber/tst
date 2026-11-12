@@ -9,6 +9,7 @@ command -v python >/dev/null || pkg install -y python
 command -v ffmpeg >/dev/null || pkg install -y ffmpeg          # MP3 변환·MP4 합치기에 필요
 command -v yt-dlp >/dev/null || pip install -U yt-dlp
 [ -d ~/storage ] || termux-setup-storage                          # /sdcard 접근 권한
+command -v termux-media-scan >/dev/null || pkg install -y termux-api   # 받은 파일을 삼성뮤직·갤러리에 등록
 
 # Termux를 열 때마다 서버가 꺼져 있으면 자동으로 켬.
 # 예전 버전이 넣은 블록(termux-wake-lock 포함)은 지우고 새로 씀:
