@@ -45,7 +45,8 @@ def log(msg):
 def command(fmt, url):
     ytdlp = shutil.which('yt-dlp') or 'yt-dlp'
     common = ['--no-playlist', '--newline', '--progress', '--no-simulate',
-              '--print', 'before_dl:UPER_TITLE %(title)s',
+              '--print', 'video:UPER_INFO %(title)s',          # 정보 확인 끝 (다음: 섬네일 받기)
+              '--print', 'before_dl:UPER_TITLE %(title)s',     # 섬네일까지 받음 (다음: 본 파일 받기)
               '--print', 'after_move:UPER_FILE %(filepath)s',
               '--progress-template', 'download:UPER_PROG %(progress._percent_str)s|%(progress._eta_str)s|%(progress._speed_str)s',
               '--progress-template', 'postprocess:UPER_PP %(progress.postprocessor)s']
@@ -76,6 +77,25 @@ def media_scan(path):
     log(f'미디어 등록(am broadcast) {r.returncode}: {path}')
 
 
+# 단계: 형식별 순서 (Uper 카드의 체크리스트와 같은 이름)
+STAGES = {
+    'm4a': ['info', 'thumb', 'dl', 'meta', 'embed', 'save', 'done'],
+    'mp3': ['info', 'thumb', 'dl', 'meta', 'embed', 'save', 'done'],
+    'mp4': ['info', 'dl', 'audio', 'merge', 'save', 'done'],
+}
+PP_STAGE = {
+    'ExtractAudio': 'meta', 'FFmpegExtractAudio': 'meta', 'Metadata': 'meta', 'FFmpegMetadata': 'meta',
+    'EmbedThumbnail': 'embed', 'Merger': 'merge', 'FFmpegMerger': 'merge', 'MoveFiles': 'save',
+}
+
+
+def advance(job, stage):
+    """단계는 앞으로만 진행"""
+    order = STAGES[job['format']]
+    if stage in order and order.index(stage) > order.index(job['stage']):
+        update(job, stage=stage)
+
+
 def update(job, **kw):
     with jobs_lock:
         job.update(kw, updated=time.time())
@@ -98,10 +118,18 @@ def run_download(job, cmd):
                 if pv is not None and job['percent'] is not None and pv + 5 < job['percent']:
                     update(job, part=job['part'] + 1)        # MP4: 영상 → 소리 두 번째 파일
                 update(job, status='downloading', percent=pv, eta=eta.strip(), speed=speed.strip())
+                advance(job, 'audio' if job['format'] == 'mp4' and job['part'] > 1 else 'dl')
             elif line.startswith('UPER_PP '):
+                name = line[8:].strip()
                 update(job, status='converting')
+                if name in PP_STAGE:
+                    advance(job, PP_STAGE[name])
+            elif line.startswith('UPER_INFO '):
+                update(job, title=line[10:])
+                advance(job, 'dl' if job['format'] == 'mp4' else 'thumb')
             elif line.startswith('UPER_TITLE '):
                 update(job, title=line[11:])
+                advance(job, 'dl')
             elif line.startswith('UPER_FILE '):
                 files.append(line[10:])
             else:
@@ -114,10 +142,12 @@ def run_download(job, cmd):
         update(job, status='error', error=last_err or f'yt-dlp 종료 코드 {p.returncode}')
         return
     update(job, status='saving', percent=100.0)
+    advance(job, 'save')
     for f in files:
         if os.path.exists(f):
             media_scan(f)
     update(job, status='done', file=os.path.basename(files[-1]))
+    advance(job, 'done')
 
 
 def snapshot():
@@ -142,7 +172,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         if u.path == '/ping':
-            return self.reply(200, 'ok v4')
+            return self.reply(200, 'ok v5')
         if self.headers.get('X-Uper') != '1':
             return self.reply(403, 'forbidden')
         if u.path == '/status':
@@ -166,7 +196,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         with jobs_lock:
             next_id[0] += 1
             job = {'id': next_id[0], 'url': url, 'format': fmt, 'title': '', 'status': 'starting',
-                   'percent': None, 'eta': '', 'speed': '', 'part': 1, 'file': '', 'error': '',
+                   'stage': 'info', 'percent': None, 'eta': '', 'speed': '', 'part': 1, 'file': '', 'error': '',
                    'updated': time.time()}
             jobs[job['id']] = job
         threading.Thread(target=run_download, args=(job, command(fmt, url)), daemon=True).start()

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.15.0
+// @version      1.16.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -386,7 +386,7 @@
         .uper-job {
             pointer-events: auto; position: relative; overflow: hidden; box-sizing: border-box;
             width: min(300px, calc(100vw - 32px)); padding: 10px 12px 12px;
-            display: flex; align-items: center; gap: 10px;
+            display: flex; flex-direction: column; gap: 8px;
             border-radius: 14px; background: var(--uper-glass); color: var(--uper-text);
             -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
             box-shadow: 0 2px 10px rgba(0,0,0,.25); font-family: var(--uper-font);
@@ -396,6 +396,7 @@
         }
         .uper-job.gone { opacity: 0; transform: translateX(24px); }
         @keyframes uper-job-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+        .uper-job .head { display: flex; align-items: center; gap: 10px; }
         .uper-job .fmt {
             flex-shrink: 0; width: 38px; height: 26px; border-radius: 8px;
             display: flex; align-items: center; justify-content: center;
@@ -428,6 +429,39 @@
         .uper-job.done .bar { background: #2ba640; }
         .uper-job.error .bar { background: #888; transform: scaleX(1); }
         .uper-job.error .sub { color: #ff6b6b; }
+
+        /* 단계 체크리스트 */
+        .uper-job .steps { display: flex; flex-direction: column; gap: 5px; padding: 2px 2px 0 4px; }
+        .uper-step {
+            display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 16px;
+            color: var(--uper-text2); opacity: .5; transition: opacity .3s, color .3s;
+        }
+        .uper-step.active { opacity: 1; color: var(--uper-text); }
+        .uper-step.done { opacity: .85; }
+        .uper-step .lbl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .uper-step .val { font-variant-numeric: tabular-nums; }
+        .uper-step svg { flex-shrink: 0; overflow: visible; }
+        .uper-step .trk { fill: none; stroke: currentColor; stroke-width: 1.6; opacity: .35; transition: opacity .3s; }
+        .uper-step .arc {
+            fill: none; stroke: var(--uper-text); stroke-width: 2; stroke-linecap: round;
+            stroke-dasharray: 0 100; transform-origin: 10px 10px; opacity: 0;
+            transition: stroke-dasharray .45s var(--uper-ease), stroke .3s, opacity .2s;
+        }
+        .uper-step.active .arc, .uper-step.done .arc, .uper-step.fail .arc { opacity: 1; }
+        .uper-step.active .arc { stroke-dasharray: 28 100; animation: uper-spin .8s linear infinite; }
+        .uper-step.done .arc { stroke-dasharray: 100 0; stroke: #2ba640; animation: uper-spin-out .45s var(--uper-ease) both; }
+        .uper-step.done .trk { opacity: 0; }
+        .uper-step .chk {
+            fill: none; stroke: #2ba640; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+            stroke-dasharray: 100; stroke-dashoffset: 100;
+            transition: stroke-dashoffset .35s var(--uper-ease) .2s;
+        }
+        .uper-step.done .chk { stroke-dashoffset: 0; }
+        .uper-step.fail { opacity: 1; color: #ff6b6b; }
+        .uper-step.fail .arc { stroke-dasharray: 100 0; stroke: #ff6b6b; animation: none; }
+        @keyframes uper-spin { to { transform: rotate(360deg); } }
+        @keyframes uper-spin-out { from { transform: rotate(-90deg); } to { transform: rotate(0deg); } }
+        .uper-job .err { font-size: 11px; line-height: 15px; color: #ff6b6b; padding-left: 30px; }
         #uper-jar.pop { animation: uper-pop .45s var(--uper-ease); }
         #uper-jar .fill {
             transform-box: fill-box; transform-origin: center bottom;
@@ -1935,6 +1969,58 @@
         });
     }
 
+    // 다운로드 단계 (서버의 stage와 같은 이름)
+    const JOB_STEPS = {
+        m4a: [['info', '영상 정보 확인'], ['thumb', '섬네일 받기'], ['dl', 'M4A 받기'],
+            ['meta', '제목·정보 넣기'], ['embed', '섬네일 넣기'], ['save', '노래 폴더 저장 · 삼성뮤직 등록']],
+        mp4: [['info', '영상 정보 확인'], ['dl', '영상 받기'], ['audio', '소리 받기'],
+            ['merge', '영상·소리 합치기'], ['save', 'Movies 폴더 저장 · 갤러리 등록']]
+    };
+    JOB_STEPS.mp3 = JOB_STEPS.m4a.map(([k, l]) => [k, k === 'dl' ? 'MP3 받기' : l]);
+
+    // 예전 서버(stage 없음)용 추정
+    function stageOf(j) {
+        if (j.stage) return j.stage;
+        if (j.status === 'done') return 'done';
+        if (j.status === 'saving') return 'save';
+        if (j.status === 'converting') return j.format === 'mp4' ? 'merge' : 'meta';
+        if (j.status === 'downloading') return j.format === 'mp4' && j.part > 1 ? 'audio' : 'dl';
+        return 'info';
+    }
+
+    function stepIcon() {
+        return svgEl('svg', { viewBox: '0 0 20 20', width: '18', height: '18', 'aria-hidden': 'true' },
+            svgEl('circle', { class: 'trk', cx: '10', cy: '10', r: '8' }),
+            svgEl('circle', { class: 'arc', cx: '10', cy: '10', r: '8', pathLength: '100' }),
+            svgEl('path', { class: 'chk', d: 'M6.2 10.4l2.5 2.5 5.2-5.4', pathLength: '100' }));
+    }
+
+    function buildSteps(fmt) {
+        const box = h('div', { class: 'steps' });
+        for (const [key, label] of (JOB_STEPS[fmt] || JOB_STEPS.m4a)) {
+            const row = h('div', { class: 'uper-step', 'data-k': key },
+                stepIcon(), h('span', { class: 'lbl', text: label }), h('span', { class: 'val' }));
+            box.appendChild(row);
+        }
+        return box;
+    }
+
+    function paintSteps(el, j) {
+        const steps = JOB_STEPS[j.format] || JOB_STEPS.m4a;
+        const stage = stageOf(j);
+        const cur = stage === 'done' ? steps.length : Math.max(0, steps.findIndex(([k]) => k === stage));
+        el.querySelectorAll('.uper-step').forEach((row, i) => {
+            const fail = j.status === 'error' && i === cur;
+            row.classList.toggle('done', i < cur);
+            row.classList.toggle('active', i === cur && !fail);
+            row.classList.toggle('fail', fail);
+            const k = row.dataset.k;
+            const val = row.querySelector('.val');
+            val.textContent = i === cur && !fail && (k === 'dl' || k === 'audio') && j.percent != null
+                ? Math.floor(j.percent) + '%' : (i === cur && !fail ? '…' : '');
+        });
+    }
+
     function jobText(j) {
         const part = j.format === 'mp4' && j.part > 1 ? ' · 소리' : (j.format === 'mp4' ? ' · 영상' : '');
         switch (j.status) {
@@ -1943,7 +2029,7 @@
             case 'converting': return j.format === 'mp4' ? '영상과 소리 합치는 중…' : '정리 중…';
             case 'saving': return '저장 중…';
             case 'done': return (j.format === 'mp4' ? 'Movies' : '노래') + ' 폴더에 저장했어요';
-            case 'error': return '실패 · ' + (j.error || '').replace(/^ERROR:\s*/, '').slice(0, 60);
+            case 'error': return '실패했어요';
             default: return j.status;
         }
     }
@@ -1958,10 +2044,13 @@
                 // 페이지를 열기 전에 이미 끝난 작업은 보이지 않음
                 if ((j.status === 'done' || j.status === 'error') && !pollTimer) continue;
                 el = h('div', { class: 'uper-job', role: 'status' },
-                    h('div', { class: 'fmt', text: j.format.toUpperCase() }),
-                    h('div', { class: 'txt' }, h('div', { class: 'ttl' }), h('div', { class: 'sub' })),
-                    h('div', { class: 'pct' }),
-                    h('button', { class: 'uper-btn-reset x', type: 'button', 'aria-label': '닫기' }, icon('close', 18)),
+                    h('div', { class: 'head' },
+                        h('div', { class: 'fmt', text: j.format.toUpperCase() }),
+                        h('div', { class: 'txt' }, h('div', { class: 'ttl' }), h('div', { class: 'sub' })),
+                        h('div', { class: 'pct' }),
+                        h('button', { class: 'uper-btn-reset x', type: 'button', 'aria-label': '닫기' }, icon('close', 18))),
+                    buildSteps(j.format),
+                    h('div', { class: 'err' }),
                     h('div', { class: 'bar' }));
                 bindTap(el.querySelector('.x'), () => dismissJob(j.id));     // 카드를 눌러서는 안 닫힘
                 progBox.appendChild(el);
@@ -1969,6 +2058,9 @@
             }
             el.querySelector('.ttl').textContent = j.title || '영상 정보 가져오는 중…';
             el.querySelector('.sub').textContent = jobText(j);
+            paintSteps(el, j);
+            el.querySelector('.err').textContent = j.status === 'error'
+                ? (j.error || '').replace(/^ERROR:\s*/, '').slice(0, 90) : '';
             const p = j.status === 'done' ? 100 : (j.percent || 0);
             // MP4는 영상·소리 두 번 받으므로 전체 진행률을 반씩 나눠 표시
             const whole = j.format === 'mp4' && j.status === 'downloading'
@@ -1982,7 +2074,7 @@
             el.classList.toggle('error', j.status === 'error');
             if ((j.status === 'done' || j.status === 'error') && !el.dataset.bye) {
                 el.dataset.bye = '1';
-                setTimeout(() => dismissJob(j.id), j.status === 'done' ? 4000 : 8000);
+                setTimeout(() => dismissJob(j.id), j.status === 'done' ? 5000 : 10000);
             }
         }
         // 서버 목록에서 빠진 카드 정리
