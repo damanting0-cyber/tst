@@ -4,6 +4,7 @@
 유튜브 페이지의 Uper 다운 버튼이 보내는 요청을 받아 yt-dlp로 공유창 없이 바로 저장한다.
   GET /send?url=...&format=mp3|mp4   다운로드 시작 → {"id": ...}
   GET /status                         진행 중·최근 다운로드 목록 (진행률)
+  GET /history                        지금까지 받은 기록 (최근 100개)
   GET /ping                           살아 있는지 확인
 
 - m4a: 음악만, 유튜브 원본 소리를 변환 없이 M4A로 → MUSIC_DIR (mp3도 받음: 변환함)
@@ -26,6 +27,7 @@ from datetime import datetime
 HOST = '127.0.0.1'
 PORT = 8765
 LOG = os.path.expanduser('~/uper-server.log')
+HISTORY = os.path.expanduser('~/uper-history.jsonl')
 ALLOWED = re.compile(r'^https://www\.youtube\.com/watch\?v=[\w-]{11}$')
 MUSIC_DIR = '/sdcard/노래'
 VIDEO_DIR = '/sdcard/Movies'
@@ -145,6 +147,7 @@ def run_download(job, cmd):
     log(f'끝 #{job["id"]} (코드 {p.returncode}): {files or "파일 없음"}')
     if p.returncode != 0 or not files:
         update(job, status='error', error=last_err or f'yt-dlp 종료 코드 {p.returncode}')
+        add_history(job)
         return
     update(job, status='saving', percent=100.0)
     advance(job, 'save')
@@ -153,6 +156,29 @@ def run_download(job, cmd):
             media_scan(f)
     update(job, status='done', file=os.path.basename(files[-1]))
     advance(job, 'done')
+    add_history(job)
+
+
+def add_history(job):
+    item = {k: job.get(k) for k in ('url', 'format', 'title', 'status', 'file', 'error')}
+    item['time'] = int(time.time())
+    with jobs_lock, open(HISTORY, 'a', encoding='utf-8') as f:
+        f.write(json.dumps(item, ensure_ascii=False) + '\n')
+
+
+def read_history(limit=100):
+    try:
+        with open(HISTORY, encoding='utf-8') as f:
+            lines = f.readlines()[-limit:]
+    except FileNotFoundError:
+        return []
+    items = []
+    for line in reversed(lines):
+        try:
+            items.append(json.loads(line))
+        except ValueError:
+            pass
+    return items
 
 
 def snapshot():
@@ -177,11 +203,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         if u.path == '/ping':
-            return self.reply(200, 'ok v6')
+            return self.reply(200, 'ok v7')
         if self.headers.get('X-Uper') != '1':
             return self.reply(403, 'forbidden')
         if u.path == '/status':
             return self.reply(200, {'jobs': snapshot()})
+        if u.path == '/history':
+            return self.reply(200, {'items': read_history()})
         if u.path != '/send':
             return self.reply(404, 'not found')
 

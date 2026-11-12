@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.17.0
+// @version      1.18.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -23,6 +23,17 @@
     'use strict';
 
     const KEY = 'uper_tip_list';
+    const SETTINGS_KEY = 'uper_settings';
+    const DEFAULT_SETTINGS = { speedGuides: true, smoothNav: true };
+    function getSettings() {
+        try { return Object.assign({}, DEFAULT_SETTINGS, JSON.parse(GM_getValue(SETTINGS_KEY, '{}'))); }
+        catch (e) { return Object.assign({}, DEFAULT_SETTINGS); }
+    }
+    function setSetting(k, v) {
+        const cur = getSettings();
+        cur[k] = v;
+        GM_setValue(SETTINGS_KEY, JSON.stringify(cur));
+    }
     const HOLD_MS = 500;
     const MOVE_LIMIT = 12;
     const SWIPE_DELETE = 90;
@@ -64,11 +75,14 @@
         add: 'M14 10H3v2h11v-2zm0-4H3v2h11V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM3 16h7v-2H3v2z',
         trash: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
         close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
-        download: 'M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z'
+        download: 'M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z',
+        back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
+        gear: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z'
     };
     const JAR_BODY = 'M8 6.5h8v1.2c2.1.8 3.2 2.3 3.2 4.4V18a3 3 0 0 1-3 3H7.8a3 3 0 0 1-3-3v-5.9c0-2.1 1.1-3.6 3.2-4.4z';
 
     let jar, jarFill, badge, scrim, sheet, sheetCount, listEl, snack, popup, copyBtn, tipBtn;
+    let sheetTitle, setEl;
     let popupOpen = false;
     let sheetOpen = false;
     let anchorEl = null;
@@ -568,6 +582,45 @@
             transition: background-color .15s;
         }
         #uper-sheet .close:active { background: var(--uper-press); }
+        #uper-sheet .back { display: none; margin-left: -8px; }
+        #uper-sheet.settings .back { display: flex; }
+        #uper-sheet.settings .gear, #uper-sheet.settings .head .num { display: none; }
+        #uper-sheet .view-set { display: none; }
+        #uper-sheet.settings .view-set { display: block; }
+        #uper-sheet.settings .view-tips { display: none; }
+        .uper-set-sec { padding: 12px 16px 4px; font-size: 12px; font-weight: 600; color: var(--uper-text2); }
+        .uper-set-row {
+            display: flex; align-items: center; gap: 12px; padding: 10px 16px; min-height: 44px; box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .uper-set-row .t { flex: 1; min-width: 0; }
+        .uper-set-row .t b { display: block; font-size: 14px; font-weight: 500; }
+        .uper-set-row .t span { display: block; font-size: 12px; color: var(--uper-text2); margin-top: 2px; }
+        .uper-switch {
+            position: relative; flex-shrink: 0; width: 46px; height: 28px; border-radius: 14px;
+            background: var(--uper-press); transition: background-color .3s var(--uper-ease);
+        }
+        .uper-switch::after {
+            content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+            background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35);
+            transition: transform .45s var(--uper-bounce);
+        }
+        .uper-switch.on { background: #2ba640; }
+        .uper-switch.on::after { transform: translateX(18px); }
+        .uper-hist { display: flex; align-items: center; gap: 10px; padding: 8px 16px; -webkit-tap-highlight-color: transparent; }
+        .uper-hist:active { background: var(--uper-press); }
+        .uper-hist .fmt {
+            flex-shrink: 0; width: 38px; height: 24px; border-radius: 7px; display: flex; align-items: center;
+            justify-content: center; font: 600 11px/1 var(--uper-font); background: var(--uper-press);
+        }
+        .uper-hist .t { flex: 1; min-width: 0; }
+        .uper-hist .t b {
+            display: block; font-size: 13px; font-weight: 500; line-height: 18px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .uper-hist .t span { display: block; font-size: 12px; color: var(--uper-text2); }
+        .uper-hist.err .t span { color: #ff6b6b; }
+        .uper-hist-empty { padding: 16px; font-size: 13px; color: var(--uper-text2); }
         #uper-sheet .list {
             overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
             padding: 4px 0 12px;
@@ -830,11 +883,17 @@
         sheetCount = h('span', { class: 'num' });
         const closeBtn = h('button', { class: 'uper-btn-reset close', type: 'button', 'aria-label': '닫기' }, icon('close', 24));
         closeBtn.addEventListener('click', closeSheet);
-        listEl = h('div', { class: 'list' });
+        const gearBtn = h('button', { class: 'uper-btn-reset close gear', type: 'button', 'aria-label': '설정' }, icon('gear', 22));
+        const backBtn = h('button', { class: 'uper-btn-reset close back', type: 'button', 'aria-label': '뒤로' }, icon('back', 24));
+        gearBtn.addEventListener('click', () => showSettings(true));
+        backBtn.addEventListener('click', () => showSettings(false));
+        sheetTitle = h('span', { text: '팁 유리통' });
+        listEl = h('div', { class: 'list view-tips' });
+        setEl = h('div', { class: 'list view-set' });
         sheet = h('div', { id: 'uper-sheet', role: 'dialog', 'aria-label': '팁 유리통' },
             h('div', { class: 'grab' }, h('div', { class: 'handle' })),
-            h('div', { class: 'head' }, h('h2', {}, '팁 유리통', sheetCount), closeBtn),
-            listEl
+            h('div', { class: 'head' }, backBtn, h('h2', {}, sheetTitle, sheetCount), gearBtn, closeBtn),
+            listEl, setEl
         );
 
         snack = h('div', { id: 'uper-snack', role: 'status' });
@@ -1106,6 +1165,66 @@
         updateLayout();
     }
 
+    // 시트 안에서 팁 목록 ↔ 설정 화면 전환 (스프링으로 옆으로 밀려 들어옴)
+    function showSettings(on) {
+        if (on === sheet.classList.contains('settings')) return;
+        sheet.classList.toggle('settings', on);
+        sheetTitle.textContent = on ? '설정' : '팁 유리통';
+        const view = on ? setEl : listEl;
+        if (on) renderSettings();
+        view.animate([{ opacity: 0, transform: `translateX(${on ? 36 : -36}px)` }, { opacity: 1, transform: 'none' }],
+            { duration: 550, easing: SPRING.smooth });
+    }
+
+    function switchRow(title, desc, key) {
+        const sw = h('div', { class: 'uper-switch' + (getSettings()[key] ? ' on' : ''), role: 'switch' });
+        const row = h('div', { class: 'uper-set-row' },
+            h('div', { class: 't' }, h('b', { text: title }), h('span', { text: desc })), sw);
+        bindTap(row, () => {
+            const v = !getSettings()[key];
+            setSetting(key, v);
+            sw.classList.toggle('on', v);
+            if (navigator.vibrate) navigator.vibrate(8);
+        });
+        return row;
+    }
+
+    function renderSettings() {
+        setEl.textContent = '';
+        setEl.append(
+            h('div', { class: 'uper-set-sec', text: '화면' }),
+            switchRow('배속 홀드 안내선', '꾹 눌러 배속할 때 3등분 점선과 고정선 표시', 'speedGuides'),
+            switchRow('영상 이동 애니메이션', '영상을 누르면 섬네일이 커지며 부드럽게 이동', 'smoothNav'),
+            h('div', { class: 'uper-set-sec', text: '다운로드 기록' })
+        );
+        const box = h('div', {}, h('div', { class: 'uper-hist-empty', text: '불러오는 중…' }));
+        setEl.appendChild(box);
+        fetchServer('/history').then((list) => {
+            box.textContent = '';
+            if (!list) {
+                box.appendChild(h('div', { class: 'uper-hist-empty', text: 'Termux 서버가 꺼져 있어 기록을 불러오지 못했어요' }));
+                return;
+            }
+            if (!list.length) {
+                box.appendChild(h('div', { class: 'uper-hist-empty', text: '아직 받은 영상이 없어요' }));
+                return;
+            }
+            list.forEach((it, i) => {
+                const d = new Date((it.time || 0) * 1000);
+                const when = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                const ok = it.status === 'done';
+                const row = h('div', { class: 'uper-hist' + (ok ? '' : ' err') },
+                    h('div', { class: 'fmt', text: (it.format || '').toUpperCase() }),
+                    h('div', { class: 't' }, h('b', { text: it.title || it.url }),
+                        h('span', { text: ok ? `${when} · ${it.format === 'mp4' ? 'Movies' : '노래'} 폴더` : `${when} · 실패` })));
+                bindTap(row, () => { closeSheet(); location.href = it.url; });
+                box.appendChild(row);
+                row.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],
+                    { duration: 500, delay: Math.min(i, 10) * 25, easing: SPRING.smooth, fill: 'backwards' });
+            });
+        });
+    }
+
     function closeSheet() {
         if (!sheetOpen) return;
         sheetOpen = false;
@@ -1113,8 +1232,14 @@
         scrim.classList.remove('open');
         sheet.classList.remove('open');
         updateLayout();
-        // 닫히는 애니메이션이 끝나면 목록과 섬네일을 비움
-        setTimeout(() => { if (!sheetOpen) listEl.textContent = ''; }, 300);
+        // 닫히는 애니메이션이 끝나면 목록과 섬네일을 비우고 팁 목록 화면으로 되돌림
+        setTimeout(() => {
+            if (sheetOpen) return;
+            listEl.textContent = '';
+            setEl.textContent = '';
+            sheet.classList.remove('settings');
+            sheetTitle.textContent = '팁 유리통';
+        }, 400);
     }
 
     // 손잡이/제목줄을 아래로 끌어내리면 닫힘
@@ -1523,9 +1648,11 @@
             document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
             swallow = true;
             layoutGuides(video.getBoundingClientRect());
-            zones.classList.add('open');
-            lockLine.classList.remove('lock');
-            lockLine.classList.add('open');
+            if (getSettings().speedGuides) {               // 설정에서 끌 수 있음
+                zones.classList.add('open');
+                lockLine.classList.remove('lock');
+                lockLine.classList.add('open');
+            }
             cancelNative(start.t);
 
             mountBox();
@@ -1700,8 +1827,9 @@
     const TILT_HOLD_MS = 450;
     const TILT_MOVE = 8;
     const TILT_PERSP = 2.4;
-    const TILT_DELAY = 70;           // 이만큼 손가락이 머물러야 눌림 시작 (스크롤하려고 닿은 손가락엔 반응 안 함)
-    const TILT_AFTER_SCROLL = 180;   // 스크롤(관성 포함) 직후 이 시간 안의 터치는 스크롤을 멈추려는 터치로 봄
+    // 이만큼 손가락이 머물러야 눌림 시작 (스크롤하려고 닿은 손가락엔 반응 안 함). 홈은 스크롤이 많아 더 길게
+    const tiltDelay = () => (location.pathname === '/' || location.pathname === '' ? 200 : 120);
+    const TILT_AFTER_SCROLL = 300;   // 스크롤(관성 포함) 직후 이 시간 안의 터치는 스크롤을 멈추려는 터치로 봄
 
     function bindPressTilt() {
         const easeOut = (t) => 1 - Math.pow(1 - t, 3);               // = cubic-bezier(.33, 1, .68, 1)
@@ -1870,7 +1998,7 @@
         }
 
         let pressTimer = null;       // 눌림 시작 대기
-        let lastScroll = 0;
+        let lastScroll = -Infinity;
 
         function cancelPending() {
             clearTimeout(pressTimer);
@@ -1893,6 +2021,7 @@
             start = { x: p.clientX, y: p.clientY };
             const px = p.clientX;
             const py = p.clientY;
+            const delay = tiltDelay();
             // 손가락이 잠깐 머물렀을 때만 눌림 시작 (스크롤하려고 스친 손가락엔 색·기울기가 번쩍이지 않게)
             pressTimer = setTimeout(() => {
                 pressTimer = null;
@@ -1902,14 +2031,15 @@
                 holdTimer = setTimeout(() => {
                     holdTimer = null;
                     if (cur === card) pop(card);
-                }, TILT_HOLD_MS - TILT_DELAY);
-            }, TILT_DELAY);
+                }, Math.max(60, TILT_HOLD_MS - delay));
+            }, delay);
         }, { capture: true, passive: true });
 
         document.addEventListener('touchmove', (e) => {
             if (!start) return;
             const p = e.touches[0];
-            if (p && Math.hypot(p.clientX - start.x, p.clientY - start.y) > TILT_MOVE) {   // 스크롤이면
+            // 눌림 시작 전에는 조금만 움직여도(5px) 스크롤로 봄, 눌린 뒤에는 8px
+            if (p && Math.hypot(p.clientX - start.x, p.clientY - start.y) > (pressTimer ? 5 : TILT_MOVE)) {
                 cancelPending();
                 start = null;
                 end();                                              // 눌린 만큼에서 부드럽게 풀림
@@ -1928,6 +2058,79 @@
             if (pressTimer) { cancelPending(); start = null; }
             if (cur) end();
         }, { passive: true, capture: true });
+    }
+
+    /* ---------- 영상 이동 애니메이션 ----------
+       카드를 누르면 바로 페이지를 바꾸지 않고, 섬네일이 플레이어 자리로 커지며 화면이 덮인 뒤
+       이동하고, 새 페이지가 준비되면 덮개가 스르륵 사라짐. */
+    let navPass = false;
+
+    function bindSmoothNav() {
+        document.addEventListener('click', (e) => {
+            if (navPass || e.defaultPrevented || e.button !== 0) return;
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+            if (!getSettings().smoothNav) return;
+            if (isOurs(e.target)) return;
+            const link = videoLink(e.target);
+            if (!link || link.target === '_blank') return;
+            const id = idFromHref(link.href);
+            if (!id) return;
+            e.preventDefault();
+            e.stopPropagation();
+            playNav(link, id);
+        }, true);
+    }
+
+    function playNav(link, id) {
+        const shorts = isShortsLink(link);
+        const thumb = findThumb(link);
+        const from = (thumb && thumb.tagName === 'IMG' ? thumb : findCard(link)).getBoundingClientRect();
+        const bg = getComputedStyle(document.body).backgroundColor;
+        const startHref = location.href;
+
+        const veil = h('div', { 'aria-hidden': 'true',
+            style: `position:fixed;inset:0;z-index:2147483600;pointer-events:none;background:${bg && bg !== 'rgba(0, 0, 0, 0)' ? bg : 'var(--uper-sheet)'};opacity:0;` });
+        const img = h('img', { alt: '', 'aria-hidden': 'true',
+            style: `position:fixed;z-index:2147483601;pointer-events:none;object-fit:cover;left:0;top:0;` +
+                `width:${from.width}px;height:${from.height}px;border-radius:12px;` +
+                `transform:translate(${from.left}px,${from.top}px);transform-origin:0 0;will-change:transform;` });
+        img.src = (thumb && thumb.tagName === 'IMG' && thumb.currentSrc) || `https://i.ytimg.com/vi/${id}/${shorts ? 'hqdefault' : 'mqdefault'}.jpg`;
+        document.body.append(veil, img);
+
+        // 목표: 일반 영상은 화면 위쪽 플레이어 자리(16:9), 쇼츠는 화면 전체
+        const header = document.querySelector('ytm-mobile-topbar-renderer, #masthead-container, header');
+        const top = shorts ? 0 : Math.max(0, Math.min(64, header ? header.getBoundingClientRect().bottom : 48));
+        const tw = innerWidth;
+        const th = shorts ? innerHeight : innerWidth * 9 / 16;
+        const sx = tw / from.width;
+        const sy = th / from.height;
+
+        veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 380, easing: SPRING.snappy, fill: 'forwards' });
+        img.animate([
+            { transform: `translate(${from.left}px,${from.top}px) scale(1,1)`, borderRadius: '12px' },
+            { transform: `translate(0px,${top}px) scale(${sx},${sy})`, borderRadius: '0px' }
+        ], { duration: 560, easing: SPRING.smooth, fill: 'forwards' });
+
+        // 커지는 중간에 실제 이동 시작 (유튜브의 페이지 전환을 그대로 사용)
+        setTimeout(() => {
+            navPass = true;
+            try { link.click(); } finally { navPass = false; }
+            setTimeout(() => { if (location.href === startHref) location.href = link.href; }, 1200);
+        }, 220);
+
+        // 새 페이지가 준비되면(주소가 바뀌고 영상이 생기면) 덮개를 걷음
+        const t0 = performance.now();
+        const reveal = () => {
+            const moved = location.href !== startHref;
+            const ready = moved && document.querySelector('video');
+            if (!(ready || performance.now() - t0 > 2500)) { setTimeout(reveal, 80); return; }
+            setTimeout(() => {
+                img.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 420, easing: SPRING.snappy, fill: 'forwards' });
+                const a = veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 480, easing: SPRING.snappy, fill: 'forwards' });
+                a.onfinish = () => { veil.remove(); img.remove(); };
+            }, 120);
+        };
+        setTimeout(reveal, 400);
     }
 
     /* ---------- Termux로 보내기 ----------
@@ -2000,6 +2203,20 @@
     let pollFails = 0;
     const jobEls = new Map();          // 작업 id → 카드
     const dismissed = new Set();
+
+    function fetchServer(path) {
+        return new Promise((resolve) => {
+            if (typeof GM_xmlhttpRequest !== 'function') { resolve(null); return; }
+            GM_xmlhttpRequest({
+                method: 'GET', url: TERMUX_SERVER + path, headers: { 'X-Uper': '1' }, timeout: 3000,
+                onload: (r) => {
+                    try { resolve(r.status === 200 ? JSON.parse(r.responseText).items : null); } catch (e) { resolve(null); }
+                },
+                onerror: () => resolve(null),
+                ontimeout: () => resolve(null)
+            });
+        });
+    }
 
     function fetchStatus() {
         return new Promise((resolve) => {
@@ -2120,7 +2337,7 @@
             el.classList.toggle('error', j.status === 'error');
             if ((j.status === 'done' || j.status === 'error') && !el.dataset.bye) {
                 el.dataset.bye = '1';
-                setTimeout(() => dismissJob(j.id), j.status === 'done' ? 5000 : 10000);
+                setTimeout(() => dismissJob(j.id), j.status === 'done' ? 3000 : 10000);
             }
         }
         // 서버 목록에서 빠진 카드 정리
@@ -2314,6 +2531,7 @@
         patchVideoFullscreen();
         bindTermux();
         bindPressTilt();
+        bindSmoothNav();
         renderList();
         syncTheme();
         updateLayout();
