@@ -6,7 +6,8 @@
   GET /status                         진행 중·최근 다운로드 목록 (진행률)
   GET /ping                           살아 있는지 확인
 
-- mp3: 음악만 MP3로 → MUSIC_DIR,  mp4: 영상 MP4로 → VIDEO_DIR
+- m4a: 음악만, 유튜브 원본 소리를 변환 없이 M4A로 → MUSIC_DIR (mp3도 받음: 변환함)
+- mp4: 영상 MP4로 → VIDEO_DIR
 - 끝난 파일은 미디어 목록에 등록 (삼성뮤직·갤러리에 바로 보이게)
 - 휴대폰 안에서만 접속 가능 (127.0.0.1), Uper가 붙이는 X-Uper 헤더가 있는 요청만 받음
 - https://www.youtube.com/watch?v=영상ID 형태의 주소만 받음
@@ -48,6 +49,11 @@ def command(fmt, url):
               '--print', 'after_move:UPER_FILE %(filepath)s',
               '--progress-template', 'download:UPER_PROG %(progress._percent_str)s|%(progress._eta_str)s|%(progress._speed_str)s',
               '--progress-template', 'postprocess:UPER_PP %(progress.postprocessor)s']
+    if fmt == 'm4a':
+        # 유튜브의 AAC(m4a) 소리를 그대로 저장 → 다시 압축하지 않아 빠르고 음질 손실 없음
+        return [ytdlp, '-f', 'ba[ext=m4a]/ba', '-x', '--audio-format', 'm4a',
+                '--embed-thumbnail', '--add-metadata', *common,
+                '-o', os.path.join(MUSIC_DIR, NAME), url]
     if fmt == 'mp3':
         return [ytdlp, '-x', '--audio-format', 'mp3', '--audio-quality', '0',
                 '--embed-thumbnail', '--add-metadata', *common,
@@ -136,7 +142,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         if u.path == '/ping':
-            return self.reply(200, 'ok v3')
+            return self.reply(200, 'ok v4')
         if self.headers.get('X-Uper') != '1':
             return self.reply(403, 'forbidden')
         if u.path == '/status':
@@ -146,16 +152,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         q = urllib.parse.parse_qs(u.query)
         url = q.get('url', [''])[0]
-        fmt = q.get('format', ['mp3'])[0] or 'mp3'
+        fmt = q.get('format', ['m4a'])[0] or 'm4a'
         if not ALLOWED.match(url):
             log(f'거부: {url!r}')
             return self.reply(400, 'bad url')
-        if fmt not in ('mp3', 'mp4'):
+        if fmt not in ('m4a', 'mp3', 'mp4'):
             return self.reply(400, 'bad format')
         if not shutil.which('yt-dlp'):
             log('yt-dlp 없음')
             return self.reply(500, 'yt-dlp not found')
-        os.makedirs(MUSIC_DIR if fmt == 'mp3' else VIDEO_DIR, exist_ok=True)
+        os.makedirs(VIDEO_DIR if fmt == 'mp4' else MUSIC_DIR, exist_ok=True)
 
         with jobs_lock:
             next_id[0] += 1

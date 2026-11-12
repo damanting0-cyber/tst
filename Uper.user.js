@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.14.0
+// @version      1.15.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -407,6 +407,17 @@
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .uper-job .sub { font-size: 12px; line-height: 16px; color: var(--uper-text2); }
+        .uper-job .pct {
+            flex-shrink: 0; min-width: 44px; text-align: right;
+            font: 600 17px/1 var(--uper-font); font-variant-numeric: tabular-nums; letter-spacing: -.2px;
+        }
+        .uper-job.done .pct { color: #2ba640; }
+        .uper-job .x {
+            flex-shrink: 0; width: 28px; height: 28px; margin: -4px -6px -4px -2px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; color: var(--uper-text2);
+            transition: background-color .15s;
+        }
+        .uper-job .x:active { background: var(--uper-press); }
         .uper-job .bar {
             position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
             background: var(--uper-red); transform-origin: left; transform: scaleX(0);
@@ -1612,11 +1623,13 @@
     const TILT_HOLD_MS = 450;
     const TILT_MOVE = 8;
     const TILT_PERSP = 2.4;
+    const TILT_DELAY = 70;           // 이만큼 손가락이 머물러야 눌림 시작 (스크롤하려고 닿은 손가락엔 반응 안 함)
+    const TILT_AFTER_SCROLL = 180;   // 스크롤(관성 포함) 직후 이 시간 안의 터치는 스크롤을 멈추려는 터치로 봄
 
     function bindPressTilt() {
         const easeOut = (t) => 1 - Math.pow(1 - t, 3);               // = cubic-bezier(.33, 1, .68, 1)
         const state = new WeakMap();                                  // 카드 → 진행 상태
-        const plateOp = (p) => Math.min(1, Math.max(0, p) * 3);       // 판은 누르자마자 빨리 나타남
+        const plateOp = (p) => Math.min(1, Math.max(0, p) * 1.6);     // 판은 눌리는 만큼 서서히 나타남
         let cur = null;                                               // 지금 누르고 있는 카드
         let start = null;
         let holdTimer = null;
@@ -1779,9 +1792,20 @@
             if (st && !st.popped) release(card);
         }
 
+        let pressTimer = null;       // 눌림 시작 대기
+        let lastScroll = 0;
+
+        function cancelPending() {
+            clearTimeout(pressTimer);
+            pressTimer = null;
+        }
+
         document.addEventListener('touchstart', (e) => {
+            cancelPending();
             if (e.touches.length !== 1) { end(); return; }
             if (closingTouch) return;
+            // 스크롤이 막 움직이던 중이면 스크롤을 멈추려는 터치 → 카드를 누르지 않음
+            if (performance.now() - lastScroll < TILT_AFTER_SCROLL) return;
             const t = e.target;
             if (isOurs(t)) return;
             const link = videoLink(t);
@@ -1789,26 +1813,44 @@
             const card = findCard(link);
             const p = e.touches[0];
             if (cur && cur !== card) end();
-            if (!press(card, p.clientX, p.clientY)) return;
-            cur = card;
             start = { x: p.clientX, y: p.clientY };
-            clearTimeout(holdTimer);
-            holdTimer = setTimeout(() => {
-                holdTimer = null;
-                if (cur === card) pop(card);
-            }, TILT_HOLD_MS);
+            const px = p.clientX;
+            const py = p.clientY;
+            // 손가락이 잠깐 머물렀을 때만 눌림 시작 (스크롤하려고 스친 손가락엔 색·기울기가 번쩍이지 않게)
+            pressTimer = setTimeout(() => {
+                pressTimer = null;
+                if (!start || !press(card, px, py)) return;
+                cur = card;
+                clearTimeout(holdTimer);
+                holdTimer = setTimeout(() => {
+                    holdTimer = null;
+                    if (cur === card) pop(card);
+                }, TILT_HOLD_MS - TILT_DELAY);
+            }, TILT_DELAY);
         }, { capture: true, passive: true });
 
         document.addEventListener('touchmove', (e) => {
-            if (!cur || !start) return;
+            if (!start) return;
             const p = e.touches[0];
-            if (p && Math.hypot(p.clientX - start.x, p.clientY - start.y) > TILT_MOVE) end();   // 스크롤이면 바로 풀림
+            if (p && Math.hypot(p.clientX - start.x, p.clientY - start.y) > TILT_MOVE) {   // 스크롤이면
+                cancelPending();
+                start = null;
+                end();                                              // 눌린 만큼에서 부드럽게 풀림
+            }
         }, { capture: true, passive: true });
 
         ['touchend', 'touchcancel'].forEach((type) => {
-            document.addEventListener(type, end, { capture: true, passive: true });
+            document.addEventListener(type, () => {
+                cancelPending();
+                start = null;
+                end();
+            }, { capture: true, passive: true });
         });
-        window.addEventListener('scroll', () => { if (cur) end(); }, { passive: true, capture: true });
+        window.addEventListener('scroll', () => {
+            lastScroll = performance.now();
+            if (pressTimer) { cancelPending(); start = null; }
+            if (cur) end();
+        }, { passive: true, capture: true });
     }
 
     /* ---------- Termux로 보내기 ----------
@@ -1894,14 +1936,13 @@
     }
 
     function jobText(j) {
-        const pct = j.percent == null ? '' : Math.round(j.percent) + '%';
         const part = j.format === 'mp4' && j.part > 1 ? ' · 소리' : (j.format === 'mp4' ? ' · 영상' : '');
         switch (j.status) {
             case 'starting': return '준비 중…';
-            case 'downloading': return `${pct}${part}` + (j.eta && j.eta !== 'Unknown' ? ` · 남은 시간 ${j.eta}` : '');
-            case 'converting': return j.format === 'mp3' ? 'MP3로 변환 중…' : '영상과 소리 합치는 중…';
+            case 'downloading': return '받는 중' + part + (j.eta && j.eta !== 'Unknown' ? ` · 남은 시간 ${j.eta}` : '');
+            case 'converting': return j.format === 'mp4' ? '영상과 소리 합치는 중…' : '정리 중…';
             case 'saving': return '저장 중…';
-            case 'done': return (j.format === 'mp3' ? '노래' : 'Movies') + ' 폴더에 저장했어요';
+            case 'done': return (j.format === 'mp4' ? 'Movies' : '노래') + ' 폴더에 저장했어요';
             case 'error': return '실패 · ' + (j.error || '').replace(/^ERROR:\s*/, '').slice(0, 60);
             default: return j.status;
         }
@@ -1919,8 +1960,10 @@
                 el = h('div', { class: 'uper-job', role: 'status' },
                     h('div', { class: 'fmt', text: j.format.toUpperCase() }),
                     h('div', { class: 'txt' }, h('div', { class: 'ttl' }), h('div', { class: 'sub' })),
+                    h('div', { class: 'pct' }),
+                    h('button', { class: 'uper-btn-reset x', type: 'button', 'aria-label': '닫기' }, icon('close', 18)),
                     h('div', { class: 'bar' }));
-                bindTap(el, () => dismissJob(j.id));
+                bindTap(el.querySelector('.x'), () => dismissJob(j.id));     // 카드를 눌러서는 안 닫힘
                 progBox.appendChild(el);
                 jobEls.set(j.id, el);
             }
@@ -1930,7 +1973,10 @@
             // MP4는 영상·소리 두 번 받으므로 전체 진행률을 반씩 나눠 표시
             const whole = j.format === 'mp4' && j.status === 'downloading'
                 ? (j.part > 1 ? 50 + p / 2 : p / 2) : p;
-            el.querySelector('.bar').style.transform = `scaleX(${Math.max(0, Math.min(100, whole)) / 100})`;
+            const wp = Math.max(0, Math.min(100, whole));
+            el.querySelector('.bar').style.transform = `scaleX(${wp / 100})`;
+            el.querySelector('.pct').textContent =
+                j.status === 'error' ? '' : (j.status === 'starting' && !j.percent ? '0%' : Math.floor(wp) + '%');
             el.classList.toggle('busy', ['starting', 'converting', 'saving'].includes(j.status));
             el.classList.toggle('done', j.status === 'done');
             el.classList.toggle('error', j.status === 'error');
@@ -2043,7 +2089,7 @@
 
         // 1단계: 형식
         const mp3 = h('button', { class: 'uper-btn-reset opt', type: 'button' },
-            h('b', { text: 'MP3' }), h('span', { text: '음악만 · 용량 작음' }));
+            h('b', { text: 'M4A' }), h('span', { text: '음악만 · 변환 없이 빠름' }));
         const mp4 = h('button', { class: 'uper-btn-reset opt', type: 'button' },
             h('b', { text: 'MP4' }), h('span', { text: '영상 · 데이터 많이 사용' }));
         const cancel = h('button', { class: 'uper-btn-reset act', type: 'button', text: '취소' });
@@ -2051,7 +2097,7 @@
         dlBox.append(h('h2', { text: '어떤 형식으로 받을까요?' }), h('div', { class: 'opts' }, mp3, mp4),
             h('div', { class: 'acts' }, cancel));
         bindTap(cancel, closeDl);
-        bindTap(mp3, () => go('mp3'));
+        bindTap(mp3, () => go('m4a'));
 
         // 2단계: MP4는 데이터 주의 한 번 더
         bindTap(mp4, () => {
