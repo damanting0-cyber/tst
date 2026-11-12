@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.19.0
+// @version      1.20.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -403,17 +403,20 @@
         }
         #uper-dl-scrim.open { opacity: 1; visibility: visible; transition: opacity .35s var(--uper-ease), visibility 0s; }
         #uper-dl {
-            position: fixed; left: 50%; bottom: 24px; z-index: 2147483639;
+            position: fixed; left: 50%; bottom: calc(24px + var(--uper-kb, 0px)); z-index: 2147483639;
+            max-height: calc(100vh - var(--uper-kb, 0px) - 40px); overflow: auto;
             width: min(360px, calc(100vw - 32px)); box-sizing: border-box; padding: 20px 16px 12px;
             border-radius: 20px; background: var(--uper-sheet); color: var(--uper-text);
             box-shadow: var(--uper-shadow); font-family: var(--uper-font);
             opacity: 0; visibility: hidden; transform: translate(-50%, 40px) scale(.94);
             transform-origin: 50% 100%;
-            transition: opacity .2s linear, transform .35s var(--uper-ease-out), visibility 0s .35s;
+            transition: opacity .2s linear, transform .35s var(--uper-ease-out), visibility 0s .35s,
+                bottom .5s var(--uper-ease);
         }
         #uper-dl.open {
             opacity: 1; visibility: visible; transform: translate(-50%, 0);
-            transition: opacity .15s linear, transform .6s var(--uper-bounce), visibility 0s;
+            transition: opacity .15s linear, transform .6s var(--uper-bounce), visibility 0s,
+                bottom .5s var(--uper-ease);
         }
         #uper-dl h2 { margin: 0 4px 4px; font-size: 16px; font-weight: 600; line-height: 22px; }
         #uper-dl p { margin: 0 4px 16px; font-size: 13px; line-height: 19px; color: var(--uper-text2); }
@@ -489,6 +492,18 @@
             transition: background-color .15s;
         }
         .uper-job .x:active { background: var(--uper-press); }
+        /* 완료 효과: 빛이 한 번 쓸고 지나가고, 퍼센트 자리에 체크가 그려짐 */
+        .uper-job .sweep {
+            position: absolute; top: 0; bottom: 0; left: -60%; width: 60%; pointer-events: none;
+            background: linear-gradient(100deg, transparent, rgba(255,255,255,.22), transparent);
+            opacity: 0;
+        }
+        .uper-job .ok {
+            position: absolute; width: 30px; height: 30px; pointer-events: none; opacity: 0;
+        }
+        .uper-job .ok circle { fill: #2ba640; }
+        .uper-job .ok path { fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round;
+            stroke-dasharray: 100; stroke-dashoffset: 100; }
         .uper-job .bar {
             position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
             background: var(--uper-red); transform-origin: left; transform: scaleX(0);
@@ -2368,6 +2383,10 @@
             el.classList.toggle('busy', ['starting', 'converting', 'saving'].includes(j.status));
             el.classList.toggle('done', j.status === 'done');
             el.classList.toggle('error', j.status === 'error');
+            if (j.status === 'done' && !el.dataset.cheer) {
+                el.dataset.cheer = '1';
+                celebrate(el);
+            }
             if ((j.status === 'done' || j.status === 'error') && !el.dataset.bye) {
                 el.dataset.bye = '1';
                 setTimeout(() => dismissJob(j.id), j.status === 'done' ? 3000 : 10000);
@@ -2375,6 +2394,40 @@
         }
         // 서버 목록에서 빠진 카드 정리
         for (const [id] of jobEls) if (!seen.has(id)) dismissJob(id);
+    }
+
+    // 다운로드 완료: 카드가 톡 튀고 초록빛 테두리가 퍼지며, 빛이 쓸고 지나가고, 퍼센트가 체크로 바뀜
+    function celebrate(el) {
+        el.style.animation = 'none';
+        el.animate([
+            { transform: 'scale(1)', boxShadow: '0 2px 10px rgba(0,0,0,.25), 0 0 0 0 rgba(43,166,64,.55)' },
+            { transform: 'scale(1.035)', boxShadow: '0 6px 22px rgba(0,0,0,.3), 0 0 0 6px rgba(43,166,64,.25)', offset: .35 },
+            { transform: 'scale(1)', boxShadow: '0 2px 10px rgba(0,0,0,.25), 0 0 0 14px rgba(43,166,64,0)' }
+        ], { duration: 900, easing: SPRING.bouncy });
+
+        const sweep = h('div', { class: 'sweep' });
+        el.appendChild(sweep);
+        sweep.animate([{ left: '-60%', opacity: 1 }, { left: '110%', opacity: 1 }],
+            { duration: 750, delay: 120, easing: 'cubic-bezier(.4,0,.2,1)' }).onfinish = () => sweep.remove();
+
+        const pct = el.querySelector('.pct');
+        if (pct) {
+            const ok = svgEl('svg', { class: 'ok', viewBox: '0 0 30 30', 'aria-hidden': 'true' },
+                svgEl('circle', { cx: '15', cy: '15', r: '15' }),
+                svgEl('path', { d: 'M9 15.5l4 4 8-8.5', pathLength: '100' }));
+            el.querySelector('.head').appendChild(ok);
+            const pr = pct.getBoundingClientRect();
+            const hr = el.getBoundingClientRect();
+            ok.style.left = (pr.right - hr.left - 30) + 'px';
+            ok.style.top = (pr.top - hr.top + pr.height / 2 - 15) + 'px';
+            pct.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.6)' }],
+                { duration: 250, easing: SPRING.snappy, fill: 'forwards' });
+            ok.animate([{ opacity: 0, transform: 'scale(.3)' }, { opacity: 1, transform: 'scale(1)' }],
+                { duration: 600, delay: 150, easing: SPRING.bouncy, fill: 'forwards' });
+            ok.querySelector('path').animate([{ strokeDashoffset: 100 }, { strokeDashoffset: 0 }],
+                { duration: 380, delay: 380, easing: SPRING.smooth, fill: 'forwards' });
+        }
+        if (navigator.vibrate) navigator.vibrate([12, 60, 18]);
     }
 
     function dismissJob(id) {
@@ -2458,6 +2511,7 @@
     let dlBox = null;
     function closeDl() {
         if (!dlBox) return;
+        if (document.activeElement && dlBox.contains(document.activeElement)) document.activeElement.blur();
         dlBox.classList.remove('open');
         dlScrim.classList.remove('open');
     }
@@ -2475,7 +2529,26 @@
         }
     }
 
+    // 키보드가 올라오면 화면에 보이는 영역(visualViewport)이 줄어듦 → 그만큼 창을 부드럽게 올림
+    let kbBound = false;
+    function syncKeyboard() {
+        const vv = window.visualViewport;
+        if (!vv || !dlBox) return;
+        const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+        dlBox.style.setProperty('--uper-kb', (kb > 60 ? kb : 0) + 'px');
+    }
+    function bindKeyboard() {
+        if (kbBound || !window.visualViewport) return;
+        kbBound = true;
+        window.visualViewport.addEventListener('resize', syncKeyboard);
+        window.visualViewport.addEventListener('scroll', syncKeyboard);
+        // 입력칸에 들어가고 나올 때도 한 번 더 (키보드 애니메이션이 끝난 뒤 값으로)
+        document.addEventListener('focusin', () => { syncKeyboard(); setTimeout(syncKeyboard, 350); }, true);
+        document.addEventListener('focusout', () => setTimeout(syncKeyboard, 350), true);
+    }
+
     function ensureDl() {
+        bindKeyboard();
         if (dlBox) return;
         dlScrim = h('div', { id: 'uper-dl-scrim' });
         dlBox = h('div', { id: 'uper-dl', role: 'dialog', 'aria-label': '다운로드' });
@@ -2538,6 +2611,7 @@
     }
 
     function chooseDownload(url, btn, meta) {
+        ensureDl();
         if (!dlBox) {
             dlScrim = h('div', { id: 'uper-dl-scrim' });
             dlBox = h('div', { id: 'uper-dl', role: 'dialog', 'aria-label': '다운로드' });
