@@ -32,6 +32,7 @@ curl -sL https://raw.githubusercontent.com/damanting0-cyber/tst/main/termux/setu
 
 - 이후 Termux를 열 때마다 서버가 꺼져 있으면 자동으로 켜집니다.
 - 서버가 꺼져 있으면 Uper는 공유창 → 링크 복사 순으로 대신 동작합니다.
+- M4A는 받기 전에 제목·가수를 정할 수 있고, 받은 뒤에도 유리병 → 설정 → 다운로드 기록의 연필 버튼으로 바꿀 수 있습니다 (파일 이름도 '가수 - 제목'으로 바뀜).
 - 받는 동안 버튼 위에 진행률 카드가 뜹니다 (MP3 변환·MP4 합치기 단계 포함).
 - 기록은 `~/uper-server.log`에 남습니다.
 

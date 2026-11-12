@@ -5,6 +5,7 @@
   GET /send?url=...&format=mp3|mp4   다운로드 시작 → {"id": ...}
   GET /status                         진행 중·최근 다운로드 목록 (진행률)
   GET /history                        지금까지 받은 기록 (최근 100개)
+  GET /retag?file=...&title=...&artist=...   받은 음악의 제목·가수를 바꾸고 파일 이름도 맞춤
   GET /ping                           살아 있는지 확인
 
 - m4a: 음악만, 유튜브 원본 소리를 변환 없이 M4A로 → MUSIC_DIR (mp3도 받음: 변환함)
@@ -69,6 +70,45 @@ def command(fmt, url):
     return [ytdlp, '-f', 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b',
             '--merge-output-format', 'mp4', *common,
             '-o', os.path.join(VIDEO_DIR, NAME), url]
+
+
+def safe_name(text):
+    """파일 이름에 못 쓰는 글자를 바꿈"""
+    text = re.sub(r'[\\/:*?"<>|\n\r\t]+', ' ', text).strip().strip('.')
+    return re.sub(r'\s+', ' ', text)[:120] or 'untitled'
+
+
+def retag(path, title, artist):
+    """ffmpeg로 제목·가수 태그를 다시 쓰고(재압축 없이), 파일 이름을 '가수 - 제목'으로 바꿈.
+    삼성뮤직 등이 m4a 태그 편집을 못 해도 여기서 바꿀 수 있음. 새 경로를 돌려줌"""
+    base, ext = os.path.splitext(path)
+    tmp = base + '.uper-tmp' + ext
+    cmd = ['ffmpeg', '-v', 'error', '-y', '-i', path, '-map', '0', '-c', 'copy', '-map_metadata', '0']
+    if title:
+        cmd += ['-metadata', f'title={title}']
+    if artist:
+        cmd += ['-metadata', f'artist={artist}', '-metadata', f'album_artist={artist}']
+    if ext.lower() in ('.m4a', '.mp4'):
+        cmd += ['-disposition:v', 'attached_pic'] if ext.lower() == '.m4a' else []
+    r = subprocess.run(cmd + [tmp], capture_output=True, text=True)
+    if r.returncode != 0:
+        log(f'태그 실패: {r.stderr.strip()[:200]}')
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        return None
+    name = safe_name(f'{artist} - {title}' if artist and title else (title or os.path.basename(base)))
+    new = os.path.join(os.path.dirname(path), name + ext)
+    n = 2
+    while os.path.exists(new) and os.path.abspath(new) != os.path.abspath(path):
+        new = os.path.join(os.path.dirname(path), f'{name} ({n}){ext}')
+        n += 1
+    os.replace(tmp, new)
+    if os.path.abspath(new) != os.path.abspath(path):
+        os.remove(path)
+        media_scan(path)                            # 옛 이름은 목록에서 지워지도록
+    media_scan(new)
+    log(f'태그 변경: {os.path.basename(path)} → {os.path.basename(new)} (제목={title!r}, 가수={artist!r})')
+    return new
 
 
 def media_scan(path):
@@ -151,19 +191,51 @@ def run_download(job, cmd):
         return
     update(job, status='saving', percent=100.0)
     advance(job, 'save')
+    # 받기 전에 고른 제목·가수가 있으면 태그와 파일 이름에 반영
+    if job.get('want_title') or job.get('want_artist'):
+        files = [retag(f, job.get('want_title'), job.get('want_artist')) or f for f in files]
     for f in files:
         if os.path.exists(f):
             media_scan(f)
     update(job, status='done', file=os.path.basename(files[-1]))
+    if job.get('want_title'):
+        update(job, title=job['want_title'])
     advance(job, 'done')
     add_history(job)
 
 
 def add_history(job):
     item = {k: job.get(k) for k in ('url', 'format', 'title', 'status', 'file', 'error')}
+    item['artist'] = job.get('want_artist') or ''
     item['time'] = int(time.time())
     with jobs_lock, open(HISTORY, 'a', encoding='utf-8') as f:
         f.write(json.dumps(item, ensure_ascii=False) + '\n')
+
+
+def rename_in_history(old_file, new_file, title, artist):
+    """기록 속 파일 이름·제목을 새 값으로 바꿈"""
+    with jobs_lock:
+        try:
+            with open(HISTORY, encoding='utf-8') as f:
+                lines = f.readlines()
+        except FileNotFoundError:
+            return
+        out = []
+        for line in lines:
+            try:
+                it = json.loads(line)
+            except ValueError:
+                out.append(line)
+                continue
+            if it.get('file') == old_file:
+                it['file'] = new_file
+                if title:
+                    it['title'] = title
+                if artist:
+                    it['artist'] = artist
+            out.append(json.dumps(it, ensure_ascii=False) + '\n')
+        with open(HISTORY, 'w', encoding='utf-8') as f:
+            f.writelines(out)
 
 
 def read_history(limit=100):
@@ -203,17 +275,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         if u.path == '/ping':
-            return self.reply(200, 'ok v7')
+            return self.reply(200, 'ok v8')
         if self.headers.get('X-Uper') != '1':
             return self.reply(403, 'forbidden')
         if u.path == '/status':
             return self.reply(200, {'jobs': snapshot()})
         if u.path == '/history':
             return self.reply(200, {'items': read_history()})
+        q = urllib.parse.parse_qs(u.query)
+        if u.path == '/retag':
+            name = os.path.basename(q.get('file', [''])[0])
+            title = q.get('title', [''])[0].strip()
+            artist = q.get('artist', [''])[0].strip()
+            path = next((os.path.join(d, name) for d in (MUSIC_DIR, VIDEO_DIR)
+                         if name and os.path.isfile(os.path.join(d, name))), None)
+            if not path:
+                return self.reply(404, {'error': '파일을 찾지 못했어요'})
+            new = retag(path, title, artist)
+            if not new:
+                return self.reply(500, {'error': '태그를 바꾸지 못했어요'})
+            rename_in_history(name, os.path.basename(new), title, artist)
+            return self.reply(200, {'file': os.path.basename(new)})
         if u.path != '/send':
             return self.reply(404, 'not found')
 
-        q = urllib.parse.parse_qs(u.query)
         url = q.get('url', [''])[0]
         fmt = q.get('format', ['m4a'])[0] or 'm4a'
         if not ALLOWED.match(url):
@@ -230,7 +315,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             next_id[0] += 1
             job = {'id': next_id[0], 'url': url, 'format': fmt, 'title': '', 'status': 'starting',
                    'stage': 'info', 'percent': None, 'eta': '', 'speed': '', 'part': 1, 'file': '', 'error': '',
-                   'updated': time.time()}
+                   'updated': time.time(),
+                   'want_title': q.get('title', [''])[0].strip(), 'want_artist': q.get('artist', [''])[0].strip()}
             jobs[job['id']] = job
         threading.Thread(target=run_download, args=(job, command(fmt, url)), daemon=True).start()
         log(f'시작 #{job["id"]} ({fmt}): {url}')
