@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.24.1
+// @version      1.25.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -365,7 +365,8 @@
         /* ---- 영상 이동 중 섬네일 + 로딩 표시 ---- */
         .uper-hero { z-index: 2147483601; pointer-events: none; overflow: hidden; transform-origin: 0 0; background: #000; }
         .uper-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-        .uper-hero.loading img { animation: uper-kenburns 6s ease-out forwards; }
+        .uper-hero img { transition: filter .6s var(--uper-ease); }
+        .uper-hero.loading img { animation: uper-kenburns 6s ease-out forwards; filter: blur(7px) brightness(.85); }
         @keyframes uper-kenburns { to { transform: scale(1.06); } }
         .uper-hero .shade {
             position: absolute; inset: 0; opacity: 0; transition: opacity .4s;
@@ -379,9 +380,9 @@
             position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px;
             opacity: 0; transform: scale(.6); transition: opacity .3s, transform .5s var(--uper-bounce);
         }
-        .uper-hero .spin .trk { fill: none; stroke: rgba(255,255,255,.25); stroke-width: 3.5; }
+        .uper-hero .spin .trk { fill: none; stroke: rgba(255,255,255,.1); stroke-width: 3; }
         .uper-hero .spin .arc {
-            fill: none; stroke: #fff; stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 26 100;
+            fill: none; stroke: rgba(255,255,255,.92); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 26 100;
             transform-origin: 24px 24px; animation: uper-spin .9s linear infinite;
         }
         .uper-hero.loading .shade { opacity: 1; }
@@ -1549,10 +1550,10 @@
     const Warp = (() => {
         const DUR = 900;                  // 물결 한 번이 퍼져 나가 사라지는 시간
         const GW = 96;                    // 파동 계산 해상도 (가로)
-        let svg, filt, dispImg, blurImg, disp, blur;
+        let svg, filt, dispImg, disp;
         let target = null, raf = null, t0 = 0, cx = 0, cy = 0, W = 0, H = 0, GH = 54;
+        let ringEl = null;
         const cDisp = document.createElement('canvas');
-        const cBlur = document.createElement('canvas');
         function build() {
             if (svg) return;
             svg = svgEl('svg', { width: '0', height: '0', style: 'position:absolute;width:0;height:0', 'aria-hidden': 'true' });
@@ -1560,19 +1561,15 @@
                 'color-interpolation-filters': 'sRGB' });
             dispImg = svgEl('feImage', { result: 'map', preserveAspectRatio: 'none' });
             disp = svgEl('feDisplacementMap', { in: 'SourceGraphic', in2: 'map', scale: '0', xChannelSelector: 'R', yChannelSelector: 'G', result: 'wavy' });
-            blur = svgEl('feGaussianBlur', { in: 'wavy', stdDeviation: '0', result: 'soft' });
-            blurImg = svgEl('feImage', { result: 'bmask', preserveAspectRatio: 'none' });
-            const cut = svgEl('feComposite', { in: 'soft', in2: 'bmask', operator: 'in', result: 'ring' });
-            const over = svgEl('feComposite', { in: 'ring', in2: 'wavy', operator: 'over' });
-            filt.append(dispImg, disp, blur, blurImg, cut, over);
+            filt.append(dispImg, disp);           // 필터는 일렁임(변위)만. 흐림은 아래 고리 덮개가 담당
             svg.appendChild(svgEl('defs', {}, filt));
             document.body.appendChild(svg);
         }
         // 시간 u(0~1)의 파동: 앞머리 반지름이 커지며, 그 뒤로 2~3겹 잔물결, 점점 약해짐
         function paint(u) {
             const gh = GH, gw = GW;
-            const dctx = cDisp.getContext('2d'), bctx = cBlur.getContext('2d');
-            const di = dctx.createImageData(gw, gh), bi = bctx.createImageData(gw, gh);
+            const dctx = cDisp.getContext('2d');
+            const di = dctx.createImageData(gw, gh);
             const sx = W / gw, sy = H / gh;
             const maxR = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)) + 40;
             const front = maxR * (1 - Math.pow(1 - u, 2.4));       // 처음엔 빠르게, 끝으로 갈수록 느리게
@@ -1583,13 +1580,12 @@
                     const px = x * sx - cx, py = y * sy - cy;
                     const r = Math.hypot(px, py) || 1;
                     const d = front - r;                             // 앞머리 뒤쪽 거리
-                    let wv = 0, bl = 0;
-                    // 한 겹의 물결: 띠 안쪽은 바깥으로, 바깥쪽은 안쪽으로 밀려 렌즈처럼 일렁임
+                    let wv = 0;
+                    // 한 겹의 물결: 띠 안쪽은 바깥으로, 바깥쪽은 안쪽으로 밀려 렌즈처럼 일렁임 (띠 밖은 그대로)
                     if (d > -band && d < band) {
                         const x2 = d / band;                           // -1 ~ 1
                         const env = Math.cos(Math.PI * x2 / 2);        // 띠 가운데가 가장 셈
                         wv = Math.sin(Math.PI * x2) * env * fade;
-                        bl = env * env * fade;
                     }
                     // 가장자리에선 밀림을 줄여 영상 밖(검은 틀)이 끌려 들어오지 않게
                     const ex = Math.min(x * sx, W - x * sx, y * sy, H - y * sy);
@@ -1598,17 +1594,19 @@
                     di.data[i] = 128 + 127 * wv * px / r;
                     di.data[i + 1] = 128 + 127 * wv * py / r;
                     di.data[i + 2] = 128; di.data[i + 3] = 255;
-                    bi.data[i] = bi.data[i + 1] = bi.data[i + 2] = 255;
-                    bi.data[i + 3] = Math.round(255 * Math.min(1, bl * 1.3));
                 }
             }
-            dctx.putImageData(di, 0, 0); bctx.putImageData(bi, 0, 0);
-            for (const [el, c] of [[dispImg, cDisp], [blurImg, cBlur]]) {
-                el.setAttribute('href', c.toDataURL());
-                el.setAttribute('x', '0'); el.setAttribute('y', '0'); el.setAttribute('width', W); el.setAttribute('height', H);
-            }
+            dctx.putImageData(di, 0, 0);
+            dispImg.setAttribute('href', cDisp.toDataURL());
+            dispImg.setAttribute('x', '0'); dispImg.setAttribute('y', '0'); dispImg.setAttribute('width', W); dispImg.setAttribute('height', H);
             disp.setAttribute('scale', (26 * fade).toFixed(1));
-            blur.setAttribute('stdDeviation', (2.2 * fade).toFixed(2));   // 물결 띠에만 살짝
+            // 흐림: 영상 위에 얹은 덮개가 뒤를 흐리게(backdrop-filter) 하되, 물결 띠 모양으로만 보이게 마스크
+            if (ringEl) {
+                const a = Math.max(0, front - band), b = front, c = front + band;
+                const m = `radial-gradient(circle at ${cx}px ${cy}px, transparent ${a}px, rgba(0,0,0,${(.9 * fade).toFixed(2)}) ${b}px, transparent ${c}px)`;
+                ringEl.style.webkitMaskImage = ringEl.style.maskImage = m;
+                ringEl.style.backdropFilter = ringEl.style.webkitBackdropFilter = `blur(${(2.6 * fade + .4).toFixed(2)}px)`;
+            }
         }
         function frame() {
             const u = (performance.now() - t0) / DUR;
@@ -1623,10 +1621,15 @@
             const r = video.getBoundingClientRect();
             W = Math.max(1, Math.round(r.width)); H = Math.max(1, Math.round(r.height));
             GH = Math.max(8, Math.round(GW * H / W));
-            cDisp.width = cBlur.width = GW; cDisp.height = cBlur.height = GH;
+            cDisp.width = GW; cDisp.height = GH;
             cx = x - r.left; cy = y - r.top;
             filt.setAttribute('x', '0'); filt.setAttribute('y', '0'); filt.setAttribute('width', W); filt.setAttribute('height', H);
             target = video;
+            // 흐림 덮개: 영상과 같은 자리, 같은 층(전체화면이면 그 안)
+            const fs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
+            ringEl = h('div', { 'aria-hidden': 'true', style: `position:fixed;left:${r.left}px;top:${r.top}px;width:${W}px;height:${H}px;` +
+                'pointer-events:none;z-index:2147483644;' });
+            (fs && fs.tagName !== 'VIDEO' ? fs : document.body).appendChild(ringEl);
             t0 = performance.now();
             paint(0);
             target.style.filter = 'url(#uper-warp)';
@@ -1638,6 +1641,8 @@
             raf = null;
             if (target) target.style.filter = '';
             target = null;
+            if (ringEl) ringEl.remove();
+            ringEl = null;
         }
         return { start, release, stop };
     })();
@@ -2384,11 +2389,24 @@
         const tw = innerWidth;
         const th = shorts ? innerHeight : innerWidth * 9 / 16;
 
-        veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: SPRING.snappy, fill: 'forwards' });
-        hero.animate([
-            { transform: `translate(${from.left}px,${from.top}px)`, width: from.width + 'px', height: from.height + 'px', borderRadius: '12px' },
-            { transform: `translate(0px,${top}px)`, width: tw + 'px', height: th + 'px', borderRadius: '0px' }
-        ], { duration: 560, easing: SPRING.smooth, fill: 'forwards' });
+        if (shorts) {
+            // 쇼츠: 화면이 검은 배경이라 덮개도 검게, 세로 카드가 가운데를 기준으로 화면 가득 커짐 (늘어나 보이지 않게 비율 유지)
+            veil.style.background = '#000';
+            const k = Math.max(tw / from.width, th / from.height);
+            const fw = from.width * k, fh = from.height * k;
+            const fx = (tw - fw) / 2, fy = (th - fh) / 2;
+            veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing: SPRING.smooth, fill: 'forwards' });
+            hero.animate([
+                { transform: `translate(${from.left}px,${from.top}px)`, width: from.width + 'px', height: from.height + 'px', borderRadius: '12px' },
+                { transform: `translate(${fx}px,${fy}px)`, width: fw + 'px', height: fh + 'px', borderRadius: '0px' }
+            ], { duration: 620, easing: SPRING.smooth, fill: 'forwards' });
+        } else {
+            veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: SPRING.snappy, fill: 'forwards' });
+            hero.animate([
+                { transform: `translate(${from.left}px,${from.top}px)`, width: from.width + 'px', height: from.height + 'px', borderRadius: '12px' },
+                { transform: `translate(0px,${top}px)`, width: tw + 'px', height: th + 'px', borderRadius: '0px' }
+            ], { duration: 560, easing: SPRING.smooth, fill: 'forwards' });
+        }
 
         setTimeout(() => {
             navPass = true;
@@ -2425,6 +2443,7 @@
         const place = (r) => Object.assign(hero.style, { transform: `translate(${r.left}px,${r.top}px)`,
             width: r.width + 'px', height: r.height + 'px', borderRadius: '0px' });
         const track = () => {
+            if (shorts) { follow = requestAnimationFrame(track); return; }      // 쇼츠는 화면 가득 그대로
             const p = playerBox();
             if (p) place(p);
             else place({ left: docLeft - window.scrollX, top: docTop - window.scrollY, width: tw, height: th });
@@ -2437,7 +2456,7 @@
             place(cur);
             docTop = cur.top + window.scrollY;
             docLeft = cur.left + window.scrollX;
-            const p = playerBox();
+            const p = shorts ? null : playerBox();
             if (p && (Math.abs(p.top - cur.top) > 1 || Math.abs(p.height - cur.height) > 1)) {
                 hero.animate([
                     { transform: `translate(${cur.left}px,${cur.top}px)`, width: cur.width + 'px', height: cur.height + 'px' },
@@ -2471,7 +2490,7 @@
             const now = performance.now();
             if (location.href !== startHref && !movedAt) movedAt = now;
             // 주소가 바뀐 뒤 잠깐(새 내용이 그려질 시간)만 덮고 바로 걷음 → 제목·추천 영상이 섬네일 아래로 바로 보임
-            if (movedAt && veil.isConnected && !veil.dataset.out && (now - movedAt > 180 || playerBox())) {
+            if (!shorts && movedAt && veil.isConnected && !veil.dataset.out && (now - movedAt > 180 || playerBox())) {
                 veil.dataset.out = '1';
                 veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: SPRING.snappy, fill: 'forwards' })
                     .onfinish = () => veil.remove();
