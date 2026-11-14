@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.23.0
+// @version      1.24.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -1543,94 +1543,96 @@
     }
 
     /* ---------- 배속 시공간 효과 ----------
-       누른 지점을 중심으로 영상이 물결처럼 일렁이며 뒤틀리고(SVG 변위 필터), 충격파 고리가 퍼짐.
-       뒤틀림은 누른 순간 크게 일었다가 누르고 있는 동안 은은하게 남고, 손을 떼면 잦아듦. */
+       누른 지점에서 물결(동심원 파동)이 퍼져 나가며 영상이 일렁이고, 파동이 지나가는 자리만 잠깐 흐려짐.
+       약 1초 뒤 파동이 화면 밖으로 빠져나가면 효과가 완전히 사라짐 → 계속 홀드하며 봐도 깨끗한 화면.
+       파동 모양은 작은 캔버스에 계산해 SVG 변위 필터(feDisplacementMap)와 흐림 마스크로 씀. */
     const Warp = (() => {
-        const NS = 'http://www.w3.org/2000/svg';
-        let svg, filt, turb, img, disp;
-        let target = null, raf = null, t0 = 0, releaseAt = 0, cx = 0, cy = 0, W = 0, H = 0, lastR = -1;
+        const DUR = 1100;                 // 파동이 퍼져 나가 사라지는 시간
+        const GW = 96;                    // 파동 계산 해상도 (가로)
+        let svg, filt, dispImg, blurImg, disp, blur;
+        let target = null, raf = null, t0 = 0, cx = 0, cy = 0, W = 0, H = 0, GH = 54;
+        const cDisp = document.createElement('canvas');
+        const cBlur = document.createElement('canvas');
         function build() {
             if (svg) return;
             svg = svgEl('svg', { width: '0', height: '0', style: 'position:absolute;width:0;height:0', 'aria-hidden': 'true' });
             filt = svgEl('filter', { id: 'uper-warp', filterUnits: 'userSpaceOnUse', primitiveUnits: 'userSpaceOnUse',
                 'color-interpolation-filters': 'sRGB' });
-            turb = svgEl('feTurbulence', { type: 'fractalNoise', baseFrequency: '0.012 0.018', numOctaves: '2', seed: '7', result: 'noise' });
-            img = svgEl('feImage', { result: 'mask', preserveAspectRatio: 'none' });
-            const flood = svgEl('feFlood', { 'flood-color': 'rgb(128,128,128)', result: 'gray' });
-            const inMask = svgEl('feComposite', { in: 'noise', in2: 'mask', operator: 'in', result: 'lens' });
-            const over = svgEl('feComposite', { in: 'lens', in2: 'gray', operator: 'over', result: 'map' });
-            disp = svgEl('feDisplacementMap', { in: 'SourceGraphic', in2: 'map', scale: '0', xChannelSelector: 'R', yChannelSelector: 'G' });
-            filt.append(turb, img, flood, inMask, over, disp);
+            dispImg = svgEl('feImage', { result: 'map', preserveAspectRatio: 'none' });
+            disp = svgEl('feDisplacementMap', { in: 'SourceGraphic', in2: 'map', scale: '0', xChannelSelector: 'R', yChannelSelector: 'G', result: 'wavy' });
+            blur = svgEl('feGaussianBlur', { in: 'wavy', stdDeviation: '0', result: 'soft' });
+            blurImg = svgEl('feImage', { result: 'bmask', preserveAspectRatio: 'none' });
+            const cut = svgEl('feComposite', { in: 'soft', in2: 'bmask', operator: 'in', result: 'ring' });
+            const over = svgEl('feComposite', { in: 'ring', in2: 'wavy', operator: 'over' });
+            filt.append(dispImg, disp, blur, blurImg, cut, over);
             svg.appendChild(svgEl('defs', {}, filt));
             document.body.appendChild(svg);
         }
-        // 누른 지점에서 바깥으로 갈수록 약해지는 원형 마스크 (반지름 r)
-        function setMask(r) {
-            if (Math.abs(r - lastR) < 6) return;
-            lastR = r;
-            const g = `<svg xmlns="${NS}" width="${W}" height="${H}"><defs><radialGradient id="g" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Math.max(1, r)}">` +
-                `<stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset=".55" stop-color="#fff" stop-opacity=".6"/>` +
-                `<stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g)"/></svg>`;
-            img.setAttribute('href', 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(g));
-            img.setAttribute('x', '0'); img.setAttribute('y', '0'); img.setAttribute('width', W); img.setAttribute('height', H);
-        }
-        function shock(host, x, y) {
-            const ring = h('div', { 'aria-hidden': 'true', style: `position:fixed;left:${x}px;top:${y}px;width:40px;height:40px;` +
-                'margin:-20px 0 0 -20px;border-radius:50%;pointer-events:none;z-index:2147483646;' +
-                'border:2px solid rgba(255,255,255,.75);box-shadow:0 0 18px rgba(203,188,255,.7), inset 0 0 14px rgba(255,255,255,.35);' });
-            host.appendChild(ring);
-            ring.animate([{ transform: 'scale(.2)', opacity: .95 }, { transform: 'scale(7)', opacity: 0 }],
-                { duration: 700, easing: 'cubic-bezier(.15,.7,.3,1)', fill: 'forwards' }).onfinish = () => ring.remove();
-            const ring2 = ring.cloneNode();
-            host.appendChild(ring2);
-            ring2.animate([{ transform: 'scale(.2)', opacity: .6 }, { transform: 'scale(4.5)', opacity: 0 }],
-                { duration: 600, delay: 90, easing: 'cubic-bezier(.15,.7,.3,1)', fill: 'forwards' }).onfinish = () => ring2.remove();
+        // 시간 u(0~1)의 파동: 앞머리 반지름이 커지며, 그 뒤로 2~3겹 잔물결, 점점 약해짐
+        function paint(u) {
+            const gh = GH, gw = GW;
+            const dctx = cDisp.getContext('2d'), bctx = cBlur.getContext('2d');
+            const di = dctx.createImageData(gw, gh), bi = bctx.createImageData(gw, gh);
+            const sx = W / gw, sy = H / gh;
+            const maxR = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)) + 40;
+            const front = maxR * (1 - Math.pow(1 - u, 2.2));       // 처음엔 빠르게, 끝으로 갈수록 느리게
+            const lam = 34;                                         // 물결 간격(px)
+            const fade = Math.pow(1 - u, 1.4);
+            for (let y = 0; y < gh; y++) {
+                for (let x = 0; x < gw; x++) {
+                    const px = x * sx - cx, py = y * sy - cy;
+                    const r = Math.hypot(px, py) || 1;
+                    const d = front - r;                             // 앞머리 뒤쪽 거리
+                    let wv = 0, bl = 0;
+                    if (d > 0 && d < lam * 3) {
+                        const env = Math.sin(Math.PI * d / (lam * 3)); // 물결 묶음의 모양
+                        wv = Math.sin(2 * Math.PI * d / lam) * env * fade;
+                        bl = env * fade;
+                    }
+                    const i = (y * gw + x) * 4;
+                    di.data[i] = 128 + 127 * wv * px / r;
+                    di.data[i + 1] = 128 + 127 * wv * py / r;
+                    di.data[i + 2] = 128; di.data[i + 3] = 255;
+                    bi.data[i] = bi.data[i + 1] = bi.data[i + 2] = 255;
+                    bi.data[i + 3] = Math.round(255 * Math.min(1, bl * 1.3));
+                }
+            }
+            dctx.putImageData(di, 0, 0); bctx.putImageData(bi, 0, 0);
+            for (const [el, c] of [[dispImg, cDisp], [blurImg, cBlur]]) {
+                el.setAttribute('href', c.toDataURL());
+                el.setAttribute('x', '0'); el.setAttribute('y', '0'); el.setAttribute('width', W); el.setAttribute('height', H);
+            }
+            disp.setAttribute('scale', (22 * fade).toFixed(1));
+            blur.setAttribute('stdDeviation', (3.2 * fade).toFixed(2));
         }
         function frame() {
-            const now = performance.now();
-            const t = (now - t0) / 1000;
-            let amp;
-            if (releaseAt) {
-                const u = Math.min(1, (now - releaseAt) / 320);
-                amp = (1 - u) * curAmp;
-                if (u >= 1) { stop(); return; }
-            } else {
-                // 누른 순간 크게 일렁였다가(0.45초) 은은하게 유지
-                amp = t < .45 ? 26 * Math.sin(Math.PI * Math.min(1, t / .45) * .5) + 0 : 26 - 18 * Math.min(1, (t - .45) / .5);
-                curAmp = amp;
-                setMask(Math.min(1, t / .5) * Math.max(W, H) * .65 + 20);
-            }
-            disp.setAttribute('scale', amp.toFixed(1));
-            // 물결이 흐르도록 노이즈 주파수를 천천히 바꿈
-            turb.setAttribute('baseFrequency', `${(0.012 + 0.004 * Math.sin(t * 2.1)).toFixed(4)} ${(0.018 + 0.005 * Math.cos(t * 1.7)).toFixed(4)}`);
+            const u = (performance.now() - t0) / DUR;
+            if (u >= 1) { stop(); return; }
+            paint(u);
             raf = requestAnimationFrame(frame);
         }
-        let curAmp = 0;
-        function start(video, x, y, host) {
+        function start(video, x, y) {
             if (!getSettings().speedWarp) return;
             build();
             stop();
             const r = video.getBoundingClientRect();
-            W = Math.round(r.width); H = Math.round(r.height);
-            cx = Math.round(x - r.left); cy = Math.round(y - r.top);
+            W = Math.max(1, Math.round(r.width)); H = Math.max(1, Math.round(r.height));
+            GH = Math.max(8, Math.round(GW * H / W));
+            cDisp.width = cBlur.width = GW; cDisp.height = cBlur.height = GH;
+            cx = x - r.left; cy = y - r.top;
             filt.setAttribute('x', '0'); filt.setAttribute('y', '0'); filt.setAttribute('width', W); filt.setAttribute('height', H);
-            lastR = -1; setMask(20);
             target = video;
+            t0 = performance.now();
+            paint(0);
             target.style.filter = 'url(#uper-warp)';
-            t0 = performance.now(); releaseAt = 0;
-            shock(host || document.body, x, y);
             raf = requestAnimationFrame(frame);
         }
-        function release() {
-            if (!target || releaseAt) return;
-            releaseAt = performance.now();
-        }
+        function release() { /* 파동은 스스로 퍼져 나가 사라짐 */ }
         function stop() {
             if (raf) cancelAnimationFrame(raf);
             raf = null;
             if (target) target.style.filter = '';
-            target = null; releaseAt = 0;
-            if (disp) disp.setAttribute('scale', '0');
+            target = null;
         }
         return { start, release, stop };
     })();
@@ -1859,7 +1861,7 @@
             document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
             swallow = true;
             layoutGuides(video.getBoundingClientRect());
-            Warp.start(video, start.x, start.y, box.parentNode);
+            Warp.start(video, start.x, start.y);
             if (getSettings().speedGuides) {               // 설정에서 끌 수 있음
                 zones.classList.add('open');
                 lockLine.classList.remove('lock');
@@ -2276,8 +2278,65 @@
        이동하고, 새 페이지가 준비되면 덮개가 스르륵 사라짐. */
     let navPass = false;
 
+    // 카드가 눌리며 기울어지는 동안 손을 떼면, 손가락 위치가 카드 밖으로 판정돼 click이 엉뚱한 곳에 가거나
+    // 아예 안 오는 경우가 있음 → 짧은 탭이면 직접 영상으로 이동
+    function goVideo(link) {
+        const id = idFromHref(link.href);
+        if (getSettings().smoothNav && id) { playNav(link, id); return; }
+        navPass = true;
+        try { link.click(); } finally { navPass = false; }
+    }
+
     function bindSmoothNav() {
+        let tap = null;           // 진행 중인 탭
+        let pendingTap = null;    // 손을 뗀 탭 (click을 기다리는 중)
+        let handledUntil = 0;     // 직접 이동시킨 뒤 늦게 도착한 click은 무시
+        document.addEventListener('touchstart', (e) => {
+            tap = null;
+            if (e.touches.length !== 1 || closingTouch || isOurs(e.target)) return;
+            const link = videoLink(e.target);
+            if (!link) return;
+            const p = e.touches[0];
+            tap = { link, card: findCard(link), x: p.clientX, y: p.clientY, t: Date.now() };
+        }, { capture: true, passive: true });
+        document.addEventListener('touchmove', (e) => {
+            const p = e.touches[0];
+            if (tap && p && Math.hypot(p.clientX - tap.x, p.clientY - tap.y) > 10) tap = null;
+        }, { capture: true, passive: true });
+        document.addEventListener('touchend', () => {
+            const t = tap;
+            tap = null;
+            if (!t || justHeld || popupOpen || Date.now() - t.t > 450) return;
+            pendingTap = t;
+            setTimeout(() => {
+                if (pendingTap !== t) return;            // click이 정상적으로 왔음
+                pendingTap = null;
+                if (t.link.isConnected && !popupOpen) {                  // click이 안 옴 → 직접 이동
+                    handledUntil = Date.now() + 1000;
+                    goVideo(t.link);
+                }
+            }, 380);
+        }, { capture: true, passive: true });
+
         document.addEventListener('click', (e) => {
+            if (!navPass && Date.now() < handledUntil && videoLink(e.target)) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+            const pt = pendingTap;
+            pendingTap = null;
+            if (pt && !navPass && !e.defaultPrevented) {
+                const link = videoLink(e.target);
+                const sameCard = link && (link === pt.link || findCard(link) === pt.card);
+                if (!sameCard) {
+                    // click이 카드 밖으로 판정됨 → 누른 영상으로 이동
+                    e.preventDefault();
+                    e.stopPropagation();
+                    goVideo(pt.link);
+                    return;
+                }
+            }
             if (navPass || e.defaultPrevented || e.button !== 0) return;
             if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
             if (!getSettings().smoothNav) return;
@@ -2334,19 +2393,24 @@
 
         const t0 = performance.now();
         // 새 페이지의 영상 자리 (화면 밖으로 스크롤돼도 찾도록 보이는지 여부는 따지지 않음)
+        // 영상 요소와 플레이어 틀을 합친 영역 (영상 아래 재생바까지 덮도록)
         const playerBox = () => {
             let best = null;
             for (const v of document.querySelectorAll('video')) {
                 const r = v.getBoundingClientRect();
                 if (r.width > 100 && r.height > 60 && (!best || r.width * r.height > best.width * best.height)) best = r;
             }
-            if (best) return best;
-            if (shorts) return null;
+            if (shorts) return best;
+            let box = null;
             for (const el of document.querySelectorAll('#player-container-id, #player-container-outer, ytm-player, #movie_player, #player')) {
                 const r = el.getBoundingClientRect();
-                if (r.width > 100 && r.height > 60) return r;
+                if (r.width > 100 && r.height > 60 && r.height < innerHeight * .8) { box = r; break; }
             }
-            return null;
+            const parts = [best, box].filter(Boolean);
+            if (!parts.length) return null;
+            const left = Math.min(...parts.map((r) => r.left)), top = Math.min(...parts.map((r) => r.top));
+            const right = Math.max(...parts.map((r) => r.right)), bottom = Math.max(...parts.map((r) => r.bottom)) + 4;
+            return { left, top, width: right - left, height: bottom - top };
         };
 
         let follow = null;
