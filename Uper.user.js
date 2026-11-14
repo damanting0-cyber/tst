@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.26.0
+// @version      1.27.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -1308,7 +1308,7 @@
             h('div', { class: 'uper-set-sec', text: '화면' }),
             switchRow('배속 홀드 안내선', '꾹 눌러 배속할 때 3등분 점선과 고정선 표시', 'speedGuides'),
             switchRow('영상 이동 애니메이션', '영상을 누르면 섬네일이 커지며 부드럽게 이동', 'smoothNav'),
-            switchRow('배속 시공간 효과', '꾹 누른 곳에서부터 화면이 일렁이며 빨라지는 느낌', 'speedWarp'),
+            switchRow('배속 시작 효과', '꾹 누른 곳에서 원이 퍼지며 배속이 켜짐', 'speedWarp'),
             h('div', { class: 'uper-set-sec', text: '다운로드 기록' })
         );
         const box = h('div', {}, h('div', { class: 'uper-hist-empty', text: '불러오는 중…' }));
@@ -1543,125 +1543,27 @@
         return best;
     }
 
-    /* ---------- 배속 시공간 효과 ----------
-       누른 순간 한 번만: 누른 지점에서 물결 한 겹이 퍼져 나가며 그 띠만 렌즈처럼 일렁이고 살짝 흐려짐.
-       영상 위에 같은 크기의 WebGL 캔버스를 얹고, 매 프레임 영상 화면을 받아 셰이더로 물결 띠 부분만 휘고 흐리게 그림.
-       띠 밖은 원본 화소를 그대로 그려서 화면 전체가 흐려지지 않음. 0.9초 뒤 캔버스를 걷어 원래 영상으로.
-       (브라우저가 영상 화면을 넘겨주지 않으면 효과 없이 지나감) */
+    /* ---------- 배속 시작 효과 ----------
+       누른 지점에서 원 하나가 커지며 퍼지고, 커질수록 선이 가늘어지고 옅어지다 사라짐 (블러·왜곡 없음). */
     const Warp = (() => {
-        const DUR = 900;
-        const VS = 'attribute vec2 a;varying vec2 uv;void main(){uv=a*.5+.5;gl_Position=vec4(a,0.,1.);}';
-        const FS = [
-            'precision mediump float;',
-            'varying vec2 uv;uniform sampler2D tex;uniform vec2 res;uniform vec2 c;',
-            'uniform float front;uniform float band;uniform float amp;uniform float blur;',
-            'vec4 at(vec2 p){return texture2D(tex,clamp(p/res,0.,1.));}',
-            'void main(){',
-            ' vec2 p=vec2(uv.x,1.-uv.y)*res; vec2 d=p-c; float r=max(length(d),1.);',
-            ' float x=(front-r)/band;',
-            ' if(abs(x)>=1.){gl_FragColor=at(p);return;}',        // 물결 띠 밖: 원본 그대로
-            ' float env=cos(1.5708*x);',
-            ' float edge=clamp(min(min(p.x,res.x-p.x),min(p.y,res.y-p.y))/(18.*res.x/360.),0.,1.);',
-            ' vec2 q=p-d/r*sin(3.14159*x)*env*amp*edge;',
-            ' float br=blur*env*env;',
-            ' vec4 s=at(q)*.2;',
-            ' s+=at(q+vec2(br,0.))*.1;s+=at(q-vec2(br,0.))*.1;s+=at(q+vec2(0.,br))*.1;s+=at(q-vec2(0.,br))*.1;',
-            ' s+=at(q+vec2(br,br)*.7)*.1;s+=at(q-vec2(br,br)*.7)*.1;s+=at(q+vec2(br,-br)*.7)*.1;s+=at(q-vec2(br,-br)*.7)*.1;',
-            ' gl_FragColor=s;}'
-        ].join('\n');
-        let cv = null, gl = null, prog = null, tex = null, U = {};
-        let video = null, raf = null, t0 = 0, cx = 0, cy = 0, W = 0, H = 0, dpr = 1;
-
-        function setup() {
-            if (gl) return true;
-            cv = document.createElement('canvas');
-            cv.setAttribute('aria-hidden', 'true');
-            cv.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483643;';
-            gl = cv.getContext('webgl', { premultipliedAlpha: false, alpha: false, antialias: false });
-            if (!gl) return false;
-            const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); return o; };
-            prog = gl.createProgram();
-            gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS));
-            gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
-            gl.linkProgram(prog);
-            if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.warn('[Uper] warp shader:', gl.getProgramInfoLog(prog)); gl = null; return false; }
-            gl.useProgram(prog);
-            const buf = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-            const loc = gl.getAttribLocation(prog, 'a');
-            gl.enableVertexAttribArray(loc);
-            gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-            tex = gl.createTexture();
-            gl.bindTexture(gl.TEXTURE_2D, tex);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            for (const n of ['res', 'c', 'front', 'band', 'amp', 'blur', 'tex']) U[n] = gl.getUniformLocation(prog, n);
-            return true;
-        }
-
-        // 영상이 실제로 그려지는 영역 (위아래·좌우 검은 여백 제외)
-        function contentRect(v) {
-            const r = v.getBoundingClientRect();
-            const vw = v.videoWidth, vh = v.videoHeight;
-            if (!vw || !vh) return r;
-            const k = Math.min(r.width / vw, r.height / vh);
-            const w = vw * k, h = vh * k;
-            return { left: r.left + (r.width - w) / 2, top: r.top + (r.height - h) / 2, width: w, height: h };
-        }
-
-        function frame() {
-            const u = (performance.now() - t0) / DUR;
-            if (u >= 1 || !video || !video.isConnected) { stop(); return; }
-            try {
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
-            } catch (e) {
-                console.warn('[Uper] 영상 화면을 받을 수 없어 시공간 효과를 건너뜀:', e && e.name);
-                stop();
-                return;
-            }
-            const fade = Math.pow(1 - u, 1.6);
-            const maxR = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)) + 40 * dpr;
-            gl.uniform1f(U.front, maxR * (1 - Math.pow(1 - u, 2.4)));
-            gl.uniform1f(U.band, (46 + 40 * u) * dpr);
-            gl.uniform1f(U.amp, 13 * fade * dpr);
-            gl.uniform1f(U.blur, 2.6 * fade * dpr);
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-            if (!cv.isConnected) {
-                const fs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
-                (fs && fs.tagName !== 'VIDEO' ? fs : document.body).appendChild(cv);
-            }
-            raf = requestAnimationFrame(frame);
-        }
-
         function start(v, x, y) {
             if (!getSettings().speedWarp) return;
-            stop();
-            if (!setup()) return;
-            if (!v.videoWidth || v.readyState < 2) return;            // 아직 화면이 없음
-            const r = contentRect(v);
-            dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-            W = Math.max(1, Math.round(r.width * dpr)); H = Math.max(1, Math.round(r.height * dpr));
-            cv.width = W; cv.height = H;
-            Object.assign(cv.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
-            gl.viewport(0, 0, W, H);
-            cx = (x - r.left) * dpr; cy = (y - r.top) * dpr;
-            gl.uniform2f(U.res, W, H);
-            gl.uniform2f(U.c, cx, cy);
-            gl.uniform1i(U.tex, 0);
-            video = v;
-            t0 = performance.now();
-            raf = requestAnimationFrame(frame);
+            const r = v.getBoundingClientRect();
+            const maxR = Math.hypot(Math.max(x - r.left, r.right - x), Math.max(y - r.top, r.bottom - y));
+            const fs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
+            const ring = h('div', { 'aria-hidden': 'true', style: `position:fixed;left:${x}px;top:${y}px;width:0;height:0;` +
+                'border-radius:50%;border:solid rgba(255,255,255,.9);box-sizing:border-box;pointer-events:none;' +
+                'z-index:2147483643;transform:translate(-50%,-50%);' });
+            (fs && fs.tagName !== 'VIDEO' ? fs : document.body).appendChild(ring);
+            const d = maxR * 2;
+            ring.animate([
+                { width: '12px', height: '12px', borderWidth: '5px', opacity: .9 },
+                { width: d * .45 + 'px', height: d * .45 + 'px', borderWidth: '2.5px', opacity: .55, offset: .35 },
+                { width: d + 'px', height: d + 'px', borderWidth: '.5px', opacity: 0 }
+            ], { duration: 850, easing: 'cubic-bezier(.2,.75,.35,1)', fill: 'forwards' }).onfinish = () => ring.remove();
         }
-        function release() { /* 물결은 스스로 퍼져 나가 사라짐 */ }
-        function stop() {
-            if (raf) cancelAnimationFrame(raf);
-            raf = null;
-            video = null;
-            if (cv && cv.isConnected) cv.remove();
-        }
+        function release() {}
+        function stop() {}
         return { start, release, stop };
     })();
 
