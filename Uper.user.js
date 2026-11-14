@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.22.0
+// @version      1.23.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -24,7 +24,7 @@
 
     const KEY = 'uper_tip_list';
     const SETTINGS_KEY = 'uper_settings';
-    const DEFAULT_SETTINGS = { speedGuides: true, smoothNav: true };
+    const DEFAULT_SETTINGS = { speedGuides: true, smoothNav: true, speedWarp: true };
     function getSettings() {
         try { return Object.assign({}, DEFAULT_SETTINGS, JSON.parse(GM_getValue(SETTINGS_KEY, '{}'))); }
         catch (e) { return Object.assign({}, DEFAULT_SETTINGS); }
@@ -1307,6 +1307,7 @@
             h('div', { class: 'uper-set-sec', text: '화면' }),
             switchRow('배속 홀드 안내선', '꾹 눌러 배속할 때 3등분 점선과 고정선 표시', 'speedGuides'),
             switchRow('영상 이동 애니메이션', '영상을 누르면 섬네일이 커지며 부드럽게 이동', 'smoothNav'),
+            switchRow('배속 시공간 효과', '꾹 누른 곳에서부터 화면이 일렁이며 빨라지는 느낌', 'speedWarp'),
             h('div', { class: 'uper-set-sec', text: '다운로드 기록' })
         );
         const box = h('div', {}, h('div', { class: 'uper-hist-empty', text: '불러오는 중…' }));
@@ -1541,6 +1542,99 @@
         return best;
     }
 
+    /* ---------- 배속 시공간 효과 ----------
+       누른 지점을 중심으로 영상이 물결처럼 일렁이며 뒤틀리고(SVG 변위 필터), 충격파 고리가 퍼짐.
+       뒤틀림은 누른 순간 크게 일었다가 누르고 있는 동안 은은하게 남고, 손을 떼면 잦아듦. */
+    const Warp = (() => {
+        const NS = 'http://www.w3.org/2000/svg';
+        let svg, filt, turb, img, disp;
+        let target = null, raf = null, t0 = 0, releaseAt = 0, cx = 0, cy = 0, W = 0, H = 0, lastR = -1;
+        function build() {
+            if (svg) return;
+            svg = svgEl('svg', { width: '0', height: '0', style: 'position:absolute;width:0;height:0', 'aria-hidden': 'true' });
+            filt = svgEl('filter', { id: 'uper-warp', filterUnits: 'userSpaceOnUse', primitiveUnits: 'userSpaceOnUse',
+                'color-interpolation-filters': 'sRGB' });
+            turb = svgEl('feTurbulence', { type: 'fractalNoise', baseFrequency: '0.012 0.018', numOctaves: '2', seed: '7', result: 'noise' });
+            img = svgEl('feImage', { result: 'mask', preserveAspectRatio: 'none' });
+            const flood = svgEl('feFlood', { 'flood-color': 'rgb(128,128,128)', result: 'gray' });
+            const inMask = svgEl('feComposite', { in: 'noise', in2: 'mask', operator: 'in', result: 'lens' });
+            const over = svgEl('feComposite', { in: 'lens', in2: 'gray', operator: 'over', result: 'map' });
+            disp = svgEl('feDisplacementMap', { in: 'SourceGraphic', in2: 'map', scale: '0', xChannelSelector: 'R', yChannelSelector: 'G' });
+            filt.append(turb, img, flood, inMask, over, disp);
+            svg.appendChild(svgEl('defs', {}, filt));
+            document.body.appendChild(svg);
+        }
+        // 누른 지점에서 바깥으로 갈수록 약해지는 원형 마스크 (반지름 r)
+        function setMask(r) {
+            if (Math.abs(r - lastR) < 6) return;
+            lastR = r;
+            const g = `<svg xmlns="${NS}" width="${W}" height="${H}"><defs><radialGradient id="g" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Math.max(1, r)}">` +
+                `<stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset=".55" stop-color="#fff" stop-opacity=".6"/>` +
+                `<stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g)"/></svg>`;
+            img.setAttribute('href', 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(g));
+            img.setAttribute('x', '0'); img.setAttribute('y', '0'); img.setAttribute('width', W); img.setAttribute('height', H);
+        }
+        function shock(host, x, y) {
+            const ring = h('div', { 'aria-hidden': 'true', style: `position:fixed;left:${x}px;top:${y}px;width:40px;height:40px;` +
+                'margin:-20px 0 0 -20px;border-radius:50%;pointer-events:none;z-index:2147483646;' +
+                'border:2px solid rgba(255,255,255,.75);box-shadow:0 0 18px rgba(203,188,255,.7), inset 0 0 14px rgba(255,255,255,.35);' });
+            host.appendChild(ring);
+            ring.animate([{ transform: 'scale(.2)', opacity: .95 }, { transform: 'scale(7)', opacity: 0 }],
+                { duration: 700, easing: 'cubic-bezier(.15,.7,.3,1)', fill: 'forwards' }).onfinish = () => ring.remove();
+            const ring2 = ring.cloneNode();
+            host.appendChild(ring2);
+            ring2.animate([{ transform: 'scale(.2)', opacity: .6 }, { transform: 'scale(4.5)', opacity: 0 }],
+                { duration: 600, delay: 90, easing: 'cubic-bezier(.15,.7,.3,1)', fill: 'forwards' }).onfinish = () => ring2.remove();
+        }
+        function frame() {
+            const now = performance.now();
+            const t = (now - t0) / 1000;
+            let amp;
+            if (releaseAt) {
+                const u = Math.min(1, (now - releaseAt) / 320);
+                amp = (1 - u) * curAmp;
+                if (u >= 1) { stop(); return; }
+            } else {
+                // 누른 순간 크게 일렁였다가(0.45초) 은은하게 유지
+                amp = t < .45 ? 26 * Math.sin(Math.PI * Math.min(1, t / .45) * .5) + 0 : 26 - 18 * Math.min(1, (t - .45) / .5);
+                curAmp = amp;
+                setMask(Math.min(1, t / .5) * Math.max(W, H) * .65 + 20);
+            }
+            disp.setAttribute('scale', amp.toFixed(1));
+            // 물결이 흐르도록 노이즈 주파수를 천천히 바꿈
+            turb.setAttribute('baseFrequency', `${(0.012 + 0.004 * Math.sin(t * 2.1)).toFixed(4)} ${(0.018 + 0.005 * Math.cos(t * 1.7)).toFixed(4)}`);
+            raf = requestAnimationFrame(frame);
+        }
+        let curAmp = 0;
+        function start(video, x, y, host) {
+            if (!getSettings().speedWarp) return;
+            build();
+            stop();
+            const r = video.getBoundingClientRect();
+            W = Math.round(r.width); H = Math.round(r.height);
+            cx = Math.round(x - r.left); cy = Math.round(y - r.top);
+            filt.setAttribute('x', '0'); filt.setAttribute('y', '0'); filt.setAttribute('width', W); filt.setAttribute('height', H);
+            lastR = -1; setMask(20);
+            target = video;
+            target.style.filter = 'url(#uper-warp)';
+            t0 = performance.now(); releaseAt = 0;
+            shock(host || document.body, x, y);
+            raf = requestAnimationFrame(frame);
+        }
+        function release() {
+            if (!target || releaseAt) return;
+            releaseAt = performance.now();
+        }
+        function stop() {
+            if (raf) cancelAnimationFrame(raf);
+            raf = null;
+            if (target) target.style.filter = '';
+            target = null; releaseAt = 0;
+            if (disp) disp.setAttribute('scale', '0');
+        }
+        return { start, release, stop };
+    })();
+
     function bindSpeedHold() {
         const COL = 42;
         const N = SPEEDS.length;                    // 왼쪽부터 1.5×, 2×, 3×
@@ -1765,6 +1859,7 @@
             document.addEventListener('touchmove', blockMove, { capture: true, passive: false });
             swallow = true;
             layoutGuides(video.getBoundingClientRect());
+            Warp.start(video, start.x, start.y, box.parentNode);
             if (getSettings().speedGuides) {               // 설정에서 끌 수 있음
                 zones.classList.add('open');
                 lockLine.classList.remove('lock');
@@ -1801,6 +1896,7 @@
             swallowTimer = setTimeout(() => { swallow = false; }, 400);   // 뒤따라오는 click까지 막음
             zones.classList.remove('open');
             lockLine.classList.remove('open');
+            Warp.release();
             const v = video;
             v.removeEventListener('ratechange', guard);
             if (!shortsGuard) document.removeEventListener('touchmove', blockMove, { capture: true });
@@ -1945,7 +2041,7 @@
     const TILT_MOVE = 8;
     const TILT_PERSP = 2.4;
     // 이만큼 손가락이 머물러야 눌림 시작 (스크롤하려고 닿은 손가락엔 반응 안 함). 홈은 스크롤이 많아 더 길게
-    const tiltDelay = () => (location.pathname === '/' || location.pathname === '' ? 200 : 120);
+    const tiltDelay = () => 0;      // 누르는 즉시 눌림 (스크롤하면 손가락 움직임으로 바로 풀림)
     const TILT_AFTER_SCROLL = 300;   // 스크롤(관성 포함) 직후 이 시간 안의 터치는 스크롤을 멈추려는 터치로 봄
 
     function bindPressTilt() {
