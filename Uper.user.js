@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.24.0
+// @version      1.24.1
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -1543,11 +1543,11 @@
     }
 
     /* ---------- 배속 시공간 효과 ----------
-       누른 지점에서 물결(동심원 파동)이 퍼져 나가며 영상이 일렁이고, 파동이 지나가는 자리만 잠깐 흐려짐.
-       약 1초 뒤 파동이 화면 밖으로 빠져나가면 효과가 완전히 사라짐 → 계속 홀드하며 봐도 깨끗한 화면.
+       누른 순간 한 번만: 누른 지점에서 물결 한 겹이 퍼져 나가며 그 띠만 렌즈처럼 일렁이고 살짝 흐려짐.
+       0.9초 뒤 화면 밖으로 빠져나가면 원래대로 → 계속 홀드하며 봐도 깨끗한 화면.
        파동 모양은 작은 캔버스에 계산해 SVG 변위 필터(feDisplacementMap)와 흐림 마스크로 씀. */
     const Warp = (() => {
-        const DUR = 1100;                 // 파동이 퍼져 나가 사라지는 시간
+        const DUR = 900;                  // 물결 한 번이 퍼져 나가 사라지는 시간
         const GW = 96;                    // 파동 계산 해상도 (가로)
         let svg, filt, dispImg, blurImg, disp, blur;
         let target = null, raf = null, t0 = 0, cx = 0, cy = 0, W = 0, H = 0, GH = 54;
@@ -1575,20 +1575,25 @@
             const di = dctx.createImageData(gw, gh), bi = bctx.createImageData(gw, gh);
             const sx = W / gw, sy = H / gh;
             const maxR = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)) + 40;
-            const front = maxR * (1 - Math.pow(1 - u, 2.2));       // 처음엔 빠르게, 끝으로 갈수록 느리게
-            const lam = 34;                                         // 물결 간격(px)
-            const fade = Math.pow(1 - u, 1.4);
+            const front = maxR * (1 - Math.pow(1 - u, 2.4));       // 처음엔 빠르게, 끝으로 갈수록 느리게
+            const band = 46 + 40 * u;                               // 물결 띠의 두께 (퍼질수록 넓고 옅게)
+            const fade = Math.pow(1 - u, 1.6);
             for (let y = 0; y < gh; y++) {
                 for (let x = 0; x < gw; x++) {
                     const px = x * sx - cx, py = y * sy - cy;
                     const r = Math.hypot(px, py) || 1;
                     const d = front - r;                             // 앞머리 뒤쪽 거리
                     let wv = 0, bl = 0;
-                    if (d > 0 && d < lam * 3) {
-                        const env = Math.sin(Math.PI * d / (lam * 3)); // 물결 묶음의 모양
-                        wv = Math.sin(2 * Math.PI * d / lam) * env * fade;
-                        bl = env * fade;
+                    // 한 겹의 물결: 띠 안쪽은 바깥으로, 바깥쪽은 안쪽으로 밀려 렌즈처럼 일렁임
+                    if (d > -band && d < band) {
+                        const x2 = d / band;                           // -1 ~ 1
+                        const env = Math.cos(Math.PI * x2 / 2);        // 띠 가운데가 가장 셈
+                        wv = Math.sin(Math.PI * x2) * env * fade;
+                        bl = env * env * fade;
                     }
+                    // 가장자리에선 밀림을 줄여 영상 밖(검은 틀)이 끌려 들어오지 않게
+                    const ex = Math.min(x * sx, W - x * sx, y * sy, H - y * sy);
+                    wv *= Math.max(0, Math.min(1, ex / 18));
                     const i = (y * gw + x) * 4;
                     di.data[i] = 128 + 127 * wv * px / r;
                     di.data[i + 1] = 128 + 127 * wv * py / r;
@@ -1602,8 +1607,8 @@
                 el.setAttribute('href', c.toDataURL());
                 el.setAttribute('x', '0'); el.setAttribute('y', '0'); el.setAttribute('width', W); el.setAttribute('height', H);
             }
-            disp.setAttribute('scale', (22 * fade).toFixed(1));
-            blur.setAttribute('stdDeviation', (3.2 * fade).toFixed(2));
+            disp.setAttribute('scale', (26 * fade).toFixed(1));
+            blur.setAttribute('stdDeviation', (2.2 * fade).toFixed(2));   // 물결 띠에만 살짝
         }
         function frame() {
             const u = (performance.now() - t0) / DUR;
