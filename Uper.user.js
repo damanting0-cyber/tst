@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.25.0
+// @version      1.26.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -1545,104 +1545,122 @@
 
     /* ---------- 배속 시공간 효과 ----------
        누른 순간 한 번만: 누른 지점에서 물결 한 겹이 퍼져 나가며 그 띠만 렌즈처럼 일렁이고 살짝 흐려짐.
-       0.9초 뒤 화면 밖으로 빠져나가면 원래대로 → 계속 홀드하며 봐도 깨끗한 화면.
-       파동 모양은 작은 캔버스에 계산해 SVG 변위 필터(feDisplacementMap)와 흐림 마스크로 씀. */
+       영상 위에 같은 크기의 WebGL 캔버스를 얹고, 매 프레임 영상 화면을 받아 셰이더로 물결 띠 부분만 휘고 흐리게 그림.
+       띠 밖은 원본 화소를 그대로 그려서 화면 전체가 흐려지지 않음. 0.9초 뒤 캔버스를 걷어 원래 영상으로.
+       (브라우저가 영상 화면을 넘겨주지 않으면 효과 없이 지나감) */
     const Warp = (() => {
-        const DUR = 900;                  // 물결 한 번이 퍼져 나가 사라지는 시간
-        const GW = 96;                    // 파동 계산 해상도 (가로)
-        let svg, filt, dispImg, disp;
-        let target = null, raf = null, t0 = 0, cx = 0, cy = 0, W = 0, H = 0, GH = 54;
-        let ringEl = null;
-        const cDisp = document.createElement('canvas');
-        function build() {
-            if (svg) return;
-            svg = svgEl('svg', { width: '0', height: '0', style: 'position:absolute;width:0;height:0', 'aria-hidden': 'true' });
-            filt = svgEl('filter', { id: 'uper-warp', filterUnits: 'userSpaceOnUse', primitiveUnits: 'userSpaceOnUse',
-                'color-interpolation-filters': 'sRGB' });
-            dispImg = svgEl('feImage', { result: 'map', preserveAspectRatio: 'none' });
-            disp = svgEl('feDisplacementMap', { in: 'SourceGraphic', in2: 'map', scale: '0', xChannelSelector: 'R', yChannelSelector: 'G', result: 'wavy' });
-            filt.append(dispImg, disp);           // 필터는 일렁임(변위)만. 흐림은 아래 고리 덮개가 담당
-            svg.appendChild(svgEl('defs', {}, filt));
-            document.body.appendChild(svg);
+        const DUR = 900;
+        const VS = 'attribute vec2 a;varying vec2 uv;void main(){uv=a*.5+.5;gl_Position=vec4(a,0.,1.);}';
+        const FS = [
+            'precision mediump float;',
+            'varying vec2 uv;uniform sampler2D tex;uniform vec2 res;uniform vec2 c;',
+            'uniform float front;uniform float band;uniform float amp;uniform float blur;',
+            'vec4 at(vec2 p){return texture2D(tex,clamp(p/res,0.,1.));}',
+            'void main(){',
+            ' vec2 p=vec2(uv.x,1.-uv.y)*res; vec2 d=p-c; float r=max(length(d),1.);',
+            ' float x=(front-r)/band;',
+            ' if(abs(x)>=1.){gl_FragColor=at(p);return;}',        // 물결 띠 밖: 원본 그대로
+            ' float env=cos(1.5708*x);',
+            ' float edge=clamp(min(min(p.x,res.x-p.x),min(p.y,res.y-p.y))/(18.*res.x/360.),0.,1.);',
+            ' vec2 q=p-d/r*sin(3.14159*x)*env*amp*edge;',
+            ' float br=blur*env*env;',
+            ' vec4 s=at(q)*.2;',
+            ' s+=at(q+vec2(br,0.))*.1;s+=at(q-vec2(br,0.))*.1;s+=at(q+vec2(0.,br))*.1;s+=at(q-vec2(0.,br))*.1;',
+            ' s+=at(q+vec2(br,br)*.7)*.1;s+=at(q-vec2(br,br)*.7)*.1;s+=at(q+vec2(br,-br)*.7)*.1;s+=at(q-vec2(br,-br)*.7)*.1;',
+            ' gl_FragColor=s;}'
+        ].join('\n');
+        let cv = null, gl = null, prog = null, tex = null, U = {};
+        let video = null, raf = null, t0 = 0, cx = 0, cy = 0, W = 0, H = 0, dpr = 1;
+
+        function setup() {
+            if (gl) return true;
+            cv = document.createElement('canvas');
+            cv.setAttribute('aria-hidden', 'true');
+            cv.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483643;';
+            gl = cv.getContext('webgl', { premultipliedAlpha: false, alpha: false, antialias: false });
+            if (!gl) return false;
+            const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); return o; };
+            prog = gl.createProgram();
+            gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS));
+            gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+            gl.linkProgram(prog);
+            if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.warn('[Uper] warp shader:', gl.getProgramInfoLog(prog)); gl = null; return false; }
+            gl.useProgram(prog);
+            const buf = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+            const loc = gl.getAttribLocation(prog, 'a');
+            gl.enableVertexAttribArray(loc);
+            gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+            tex = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            for (const n of ['res', 'c', 'front', 'band', 'amp', 'blur', 'tex']) U[n] = gl.getUniformLocation(prog, n);
+            return true;
         }
-        // 시간 u(0~1)의 파동: 앞머리 반지름이 커지며, 그 뒤로 2~3겹 잔물결, 점점 약해짐
-        function paint(u) {
-            const gh = GH, gw = GW;
-            const dctx = cDisp.getContext('2d');
-            const di = dctx.createImageData(gw, gh);
-            const sx = W / gw, sy = H / gh;
-            const maxR = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)) + 40;
-            const front = maxR * (1 - Math.pow(1 - u, 2.4));       // 처음엔 빠르게, 끝으로 갈수록 느리게
-            const band = 46 + 40 * u;                               // 물결 띠의 두께 (퍼질수록 넓고 옅게)
-            const fade = Math.pow(1 - u, 1.6);
-            for (let y = 0; y < gh; y++) {
-                for (let x = 0; x < gw; x++) {
-                    const px = x * sx - cx, py = y * sy - cy;
-                    const r = Math.hypot(px, py) || 1;
-                    const d = front - r;                             // 앞머리 뒤쪽 거리
-                    let wv = 0;
-                    // 한 겹의 물결: 띠 안쪽은 바깥으로, 바깥쪽은 안쪽으로 밀려 렌즈처럼 일렁임 (띠 밖은 그대로)
-                    if (d > -band && d < band) {
-                        const x2 = d / band;                           // -1 ~ 1
-                        const env = Math.cos(Math.PI * x2 / 2);        // 띠 가운데가 가장 셈
-                        wv = Math.sin(Math.PI * x2) * env * fade;
-                    }
-                    // 가장자리에선 밀림을 줄여 영상 밖(검은 틀)이 끌려 들어오지 않게
-                    const ex = Math.min(x * sx, W - x * sx, y * sy, H - y * sy);
-                    wv *= Math.max(0, Math.min(1, ex / 18));
-                    const i = (y * gw + x) * 4;
-                    di.data[i] = 128 + 127 * wv * px / r;
-                    di.data[i + 1] = 128 + 127 * wv * py / r;
-                    di.data[i + 2] = 128; di.data[i + 3] = 255;
-                }
-            }
-            dctx.putImageData(di, 0, 0);
-            dispImg.setAttribute('href', cDisp.toDataURL());
-            dispImg.setAttribute('x', '0'); dispImg.setAttribute('y', '0'); dispImg.setAttribute('width', W); dispImg.setAttribute('height', H);
-            disp.setAttribute('scale', (26 * fade).toFixed(1));
-            // 흐림: 영상 위에 얹은 덮개가 뒤를 흐리게(backdrop-filter) 하되, 물결 띠 모양으로만 보이게 마스크
-            if (ringEl) {
-                const a = Math.max(0, front - band), b = front, c = front + band;
-                const m = `radial-gradient(circle at ${cx}px ${cy}px, transparent ${a}px, rgba(0,0,0,${(.9 * fade).toFixed(2)}) ${b}px, transparent ${c}px)`;
-                ringEl.style.webkitMaskImage = ringEl.style.maskImage = m;
-                ringEl.style.backdropFilter = ringEl.style.webkitBackdropFilter = `blur(${(2.6 * fade + .4).toFixed(2)}px)`;
-            }
+
+        // 영상이 실제로 그려지는 영역 (위아래·좌우 검은 여백 제외)
+        function contentRect(v) {
+            const r = v.getBoundingClientRect();
+            const vw = v.videoWidth, vh = v.videoHeight;
+            if (!vw || !vh) return r;
+            const k = Math.min(r.width / vw, r.height / vh);
+            const w = vw * k, h = vh * k;
+            return { left: r.left + (r.width - w) / 2, top: r.top + (r.height - h) / 2, width: w, height: h };
         }
+
         function frame() {
             const u = (performance.now() - t0) / DUR;
-            if (u >= 1) { stop(); return; }
-            paint(u);
+            if (u >= 1 || !video || !video.isConnected) { stop(); return; }
+            try {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+            } catch (e) {
+                console.warn('[Uper] 영상 화면을 받을 수 없어 시공간 효과를 건너뜀:', e && e.name);
+                stop();
+                return;
+            }
+            const fade = Math.pow(1 - u, 1.6);
+            const maxR = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)) + 40 * dpr;
+            gl.uniform1f(U.front, maxR * (1 - Math.pow(1 - u, 2.4)));
+            gl.uniform1f(U.band, (46 + 40 * u) * dpr);
+            gl.uniform1f(U.amp, 13 * fade * dpr);
+            gl.uniform1f(U.blur, 2.6 * fade * dpr);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            if (!cv.isConnected) {
+                const fs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
+                (fs && fs.tagName !== 'VIDEO' ? fs : document.body).appendChild(cv);
+            }
             raf = requestAnimationFrame(frame);
         }
-        function start(video, x, y) {
+
+        function start(v, x, y) {
             if (!getSettings().speedWarp) return;
-            build();
             stop();
-            const r = video.getBoundingClientRect();
-            W = Math.max(1, Math.round(r.width)); H = Math.max(1, Math.round(r.height));
-            GH = Math.max(8, Math.round(GW * H / W));
-            cDisp.width = GW; cDisp.height = GH;
-            cx = x - r.left; cy = y - r.top;
-            filt.setAttribute('x', '0'); filt.setAttribute('y', '0'); filt.setAttribute('width', W); filt.setAttribute('height', H);
-            target = video;
-            // 흐림 덮개: 영상과 같은 자리, 같은 층(전체화면이면 그 안)
-            const fs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
-            ringEl = h('div', { 'aria-hidden': 'true', style: `position:fixed;left:${r.left}px;top:${r.top}px;width:${W}px;height:${H}px;` +
-                'pointer-events:none;z-index:2147483644;' });
-            (fs && fs.tagName !== 'VIDEO' ? fs : document.body).appendChild(ringEl);
+            if (!setup()) return;
+            if (!v.videoWidth || v.readyState < 2) return;            // 아직 화면이 없음
+            const r = contentRect(v);
+            dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+            W = Math.max(1, Math.round(r.width * dpr)); H = Math.max(1, Math.round(r.height * dpr));
+            cv.width = W; cv.height = H;
+            Object.assign(cv.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+            gl.viewport(0, 0, W, H);
+            cx = (x - r.left) * dpr; cy = (y - r.top) * dpr;
+            gl.uniform2f(U.res, W, H);
+            gl.uniform2f(U.c, cx, cy);
+            gl.uniform1i(U.tex, 0);
+            video = v;
             t0 = performance.now();
-            paint(0);
-            target.style.filter = 'url(#uper-warp)';
             raf = requestAnimationFrame(frame);
         }
-        function release() { /* 파동은 스스로 퍼져 나가 사라짐 */ }
+        function release() { /* 물결은 스스로 퍼져 나가 사라짐 */ }
         function stop() {
             if (raf) cancelAnimationFrame(raf);
             raf = null;
-            if (target) target.style.filter = '';
-            target = null;
-            if (ringEl) ringEl.remove();
-            ringEl = null;
+            video = null;
+            if (cv && cv.isConnected) cv.remove();
         }
         return { start, release, stop };
     })();
