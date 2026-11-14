@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.20.1
+// @version      1.21.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -377,19 +377,20 @@
 
         /* ---- 다운 버튼 (영상 페이지에서만, 유리통 왼쪽) ---- */
         #uper-termux {
-            position: fixed; right: 76px; bottom: 16px; z-index: 2147483620;
+            position: fixed; right: 76px; bottom: 16px; z-index: 2147483619;   /* 유리병 뒤에서 나옴 */
             width: 48px; height: 48px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             background: var(--uper-glass); color: var(--uper-text);
             -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
             box-shadow: 0 2px 8px rgba(0,0,0,.25);
-            opacity: 0; visibility: hidden; transform: scale(.6);
-            transition: bottom .5s var(--uper-ease), transform .35s var(--uper-ease-out),
-                opacity .2s, visibility 0s .35s;
+            /* 숨었을 땐 유리병 자리(오른쪽 60px)에 작게 겹쳐 있음 */
+            opacity: 0; visibility: hidden; transform: translateX(60px) scale(.35);
+            transition: bottom .5s var(--uper-ease), transform .4s var(--uper-ease-out),
+                opacity .25s linear .1s, visibility 0s .4s;
         }
         #uper-termux.on {
-            opacity: 1; visibility: visible; transform: scale(1);
-            transition: bottom .5s var(--uper-ease), transform .55s var(--uper-bounce), opacity .2s, visibility 0s;
+            opacity: 1; visibility: visible; transform: translateX(0) scale(1);
+            transition: bottom .5s var(--uper-ease), transform .7s var(--uper-bounce), opacity .18s linear, visibility 0s;
         }
         #uper-termux.on:active { transform: scale(.88); }
         #uper-termux.busy svg { animation: uper-termux-pulse .8s ease-in-out infinite; }
@@ -930,6 +931,7 @@
         [popup, jar, scrim, sheet, snack].forEach((el) => document.body.appendChild(el));
         scrim.addEventListener('click', closeSheet);
         bindSheetDrag();
+        bindSnackSwipe();
     }
 
     /* ---------- 스낵바 ---------- */
@@ -940,6 +942,9 @@
     }
 
     function showSnack(msg, actionText, onAction) {
+        snack.style.transition = '';
+        snack.style.transform = '';
+        snack.style.opacity = '';
         snack.textContent = '';
         snack.appendChild(h('span', { class: 'msg', text: msg }));
         if (actionText) {
@@ -955,6 +960,57 @@
         snack.classList.add('open');
         clearTimeout(snackTimer);
         snackTimer = setTimeout(hideSnack, actionText ? SNACK_MS : 2000);
+    }
+
+    // 토스트를 옆이나 아래로 밀면 손가락을 따라오다가 날아가며 사라짐, 덜 밀면 스프링으로 제자리
+    function bindSnackSwipe() {
+        let sx = 0, sy = 0, dx = 0, dy = 0, drag = false, axis = '';
+        snack.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1 || !snack.classList.contains('open')) return;
+            if (e.target.closest && e.target.closest('.action')) return;
+            sx = e.touches[0].clientX; sy = e.touches[0].clientY; dx = dy = 0; axis = ''; drag = true;
+            clearTimeout(snackTimer);                                  // 잡고 있는 동안은 저절로 안 사라짐
+            snack.style.transition = 'none';
+        }, { passive: true });
+        snack.addEventListener('touchmove', (e) => {
+            if (!drag) return;
+            dx = e.touches[0].clientX - sx; dy = e.touches[0].clientY - sy;
+            if (!axis && Math.hypot(dx, dy) > 6) axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+            if (e.cancelable) e.preventDefault();                       // 밀 때 페이지가 스크롤되지 않게
+            const x = axis === 'x' ? dx : 0;
+            const y = axis === 'y' ? (dy > 0 ? dy : dy / 4) : 0;         // 위로는 살짝만 따라옴
+            const far = Math.min(1, Math.abs(axis === 'x' ? dx : Math.max(0, dy)) / 160);
+            snack.style.transform = `translate(${x}px, ${y}px) rotate(${x / 40}deg)`;
+            snack.style.opacity = String(1 - far * 0.7);
+        }, { passive: false });
+        const end = () => {
+            if (!drag) return;
+            drag = false;
+            const flingX = axis === 'x' && Math.abs(dx) > 70;
+            const flingY = axis === 'y' && dy > 36;
+            const from = snack.style.transform || 'none';
+            if (flingX || flingY) {
+                const to = flingX ? `translate(${Math.sign(dx) * (innerWidth + 40)}px, 0) rotate(${Math.sign(dx) * 12}deg)`
+                    : 'translate(0, 120px)';
+                const a = snack.animate([{ transform: from, opacity: snack.style.opacity || 1 }, { transform: to, opacity: 0 }],
+                    { duration: 380, easing: SPRING.snappy, fill: 'forwards' });
+                a.onfinish = () => {
+                    snack.style.transition = 'none';
+                    snack.style.opacity = '0';
+                    hideSnack();
+                    a.cancel();
+                };
+            } else {
+                snack.animate([{ transform: from, opacity: snack.style.opacity || 1 }, { transform: 'none', opacity: 1 }],
+                    { duration: 500, easing: SPRING.bouncy });
+                snack.style.transition = '';
+                snack.style.transform = '';
+                snack.style.opacity = '';
+                snackTimer = setTimeout(hideSnack, 2500);
+            }
+        };
+        snack.addEventListener('touchend', end);
+        snack.addEventListener('touchcancel', end);
     }
 
     /* ---------- 버튼 탭 (touchend + click 중복 방지) ---------- */
@@ -2154,17 +2210,72 @@
 
         // 새 페이지가 준비되면(주소가 바뀌고 영상이 생기면) 덮개를 걷음
         const t0 = performance.now();
-        const reveal = () => {
-            const moved = location.href !== startHref;
-            const ready = moved && document.querySelector('video');
-            if (!(ready || performance.now() - t0 > 2500)) { setTimeout(reveal, 80); return; }
-            setTimeout(() => {
-                img.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 420, easing: SPRING.snappy, fill: 'forwards' });
-                const a = veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 480, easing: SPRING.snappy, fill: 'forwards' });
-                a.onfinish = () => { veil.remove(); img.remove(); };
-            }, 120);
+        // 1단계: 새 페이지의 플레이어가 생기면 덮개를 걷고, 섬네일은 플레이어 자리에 딱 맞춰 둠
+        // 2단계: 영상이 실제로 재생되기 시작하면(검은 로딩 화면이 끝나면) 그때 섬네일을 걷음
+        const playerBox = () => {
+            const cands = shorts
+                ? [mainVideo()]
+                : [...document.querySelectorAll('#player-container-id, #player-container-outer, ytm-player, #movie_player, #player')];
+            for (const el of cands) {
+                if (!el) continue;
+                const r = el.getBoundingClientRect();
+                if (r.width > 100 && r.height > 60) return r;
+            }
+            return null;
         };
-        setTimeout(reveal, 400);
+        let follow = null;
+        let pinned = false;
+        const finish = () => {
+            if (follow) cancelAnimationFrame(follow);
+            follow = null;
+            const a = img.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 380, easing: SPRING.snappy, fill: 'forwards' });
+            a.onfinish = () => img.remove();
+            if (veil.isConnected) {
+                veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 380, easing: SPRING.snappy, fill: 'forwards' })
+                    .onfinish = () => veil.remove();
+            }
+        };
+        const pinTo = (r) => {
+            // 지금 보이는 자리에서 플레이어 자리로 스프링 이동 → 그 뒤로는 플레이어를 계속 따라감
+            const cur = img.getBoundingClientRect();
+            img.getAnimations().forEach((x) => x.cancel());
+            Object.assign(img.style, { transform: 'none', borderRadius: '0px', left: r.left + 'px', top: r.top + 'px',
+                width: r.width + 'px', height: r.height + 'px' });
+            img.animate([
+                { left: cur.left + 'px', top: cur.top + 'px', width: cur.width + 'px', height: cur.height + 'px' },
+                { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' }
+            ], { duration: 420, easing: SPRING.smooth });
+            const loop = () => {
+                const p = playerBox();
+                if (p) Object.assign(img.style, { left: p.left + 'px', top: p.top + 'px', width: p.width + 'px', height: p.height + 'px' });
+                follow = requestAnimationFrame(loop);
+            };
+            setTimeout(() => { follow = requestAnimationFrame(loop); }, 420);
+        };
+        const playing = () => {
+            const v = mainVideo();
+            return v && v.readyState >= 3 && !v.paused && v.currentTime > 0.05;
+        };
+        let pausedSince = 0;
+        const watch = () => {
+            const moved = location.href !== startHref;
+            const box = moved && playerBox();
+            if (box && !pinned) {
+                pinned = true;
+                pinTo(box);
+                veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 420, easing: SPRING.snappy, fill: 'forwards' })
+                    .onfinish = () => veil.remove();
+            }
+            const v = mainVideo();
+            // 자동재생이 꺼져 멈춰 있는 경우: 준비만 되면 섬네일을 걷음
+            if (v && v.paused && v.readyState >= 2) pausedSince = pausedSince || performance.now();
+            else pausedSince = 0;
+            const idleReady = pausedSince && performance.now() - pausedSince > 1200;
+            if (pinned && (playing() || idleReady)) { setTimeout(finish, 120); return; }
+            if (performance.now() - t0 > 9000) { finish(); return; }          // 너무 오래 걸리면 그냥 걷음
+            setTimeout(watch, 60);
+        };
+        setTimeout(watch, 300);
     }
 
     /* ---------- Termux로 보내기 ----------
