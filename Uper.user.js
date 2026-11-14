@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Uper
 // @namespace    https://github.com/damanting0-cyber/tst
-// @version      1.21.0
+// @version      1.22.0
 // @description  영상을 꾹 누르면 섬네일 위에 팝업(링크 복사/다운/팁)이 뜨고, 담은 영상은 팁 유리통(스와이프 삭제/실행 취소)에 모입니다. 영상 페이지에서는 MP3/MP4로 바로 받을 수 있습니다(Termux).
 // @author       damanting0-cyber
 // @homepageURL  https://github.com/damanting0-cyber/tst
@@ -361,6 +361,33 @@
             transition: bottom .3s var(--uper-ease), transform .2s var(--uper-ease), opacity .2s;
         }
         #uper-jar:active { transform: scale(.9); }
+
+        /* ---- 영상 이동 중 섬네일 + 로딩 표시 ---- */
+        .uper-hero { z-index: 2147483601; pointer-events: none; overflow: hidden; transform-origin: 0 0; background: #000; }
+        .uper-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .uper-hero.loading img { animation: uper-kenburns 6s ease-out forwards; }
+        @keyframes uper-kenburns { to { transform: scale(1.06); } }
+        .uper-hero .shade {
+            position: absolute; inset: 0; opacity: 0; transition: opacity .4s;
+            background: radial-gradient(circle at 50% 50%, rgba(0,0,0,.15), rgba(0,0,0,.45));
+        }
+        .uper-hero .shine {
+            position: absolute; top: 0; bottom: 0; left: -50%; width: 45%; opacity: 0;
+            background: linear-gradient(100deg, transparent, rgba(255,255,255,.16), transparent);
+        }
+        .uper-hero .spin {
+            position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px;
+            opacity: 0; transform: scale(.6); transition: opacity .3s, transform .5s var(--uper-bounce);
+        }
+        .uper-hero .spin .trk { fill: none; stroke: rgba(255,255,255,.25); stroke-width: 3.5; }
+        .uper-hero .spin .arc {
+            fill: none; stroke: #fff; stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 26 100;
+            transform-origin: 24px 24px; animation: uper-spin .9s linear infinite;
+        }
+        .uper-hero.loading .shade { opacity: 1; }
+        .uper-hero.loading .spin { opacity: 1; transform: scale(1); }
+        .uper-hero.loading .shine { opacity: 1; animation: uper-shine 1.6s ease-in-out infinite; }
+        @keyframes uper-shine { from { left: -50%; } to { left: 110%; } }
 
         /* ---- 카드 누름 3D 기울임: 카드 판(여백 포함) + 빛 반사 레이어 ---- */
         .uper-tilt-card { isolation: isolate; }
@@ -2100,7 +2127,7 @@
             if (e.touches.length !== 1) { end(); return; }
             if (closingTouch) return;
             // 스크롤이 막 움직이던 중이면 스크롤을 멈추려는 터치 → 카드를 누르지 않음
-            if (performance.now() - lastScroll < TILT_AFTER_SCROLL) return;
+            // (스크롤 직후라도 손가락이 머무르면 눌림. 스크롤하려고 움직이면 아래 touchmove에서 풀림)
             const t = e.target;
             if (isOurs(t)) return;
             const link = videoLink(t);
@@ -2143,11 +2170,9 @@
                 end();
             }, { capture: true, passive: true });
         });
-        window.addEventListener('scroll', () => {
-            lastScroll = performance.now();
-            if (pressTimer) { cancelPending(); start = null; }
-            if (cur) end();
-        }, { passive: true, capture: true });
+        // 관성 스크롤이 멈추며 생기는 마지막 스크롤 이벤트 때문에 누름이 취소되지 않도록,
+        // 스크롤로 인한 취소는 손가락 움직임(touchmove)으로만 판단함
+        window.addEventListener('scroll', () => { lastScroll = performance.now(); }, { passive: true, capture: true });
     }
 
     /* ---------- 영상 이동 애니메이션 ----------
@@ -2178,104 +2203,124 @@
         const bg = getComputedStyle(document.body).backgroundColor;
         const startHref = location.href;
 
+        // 덮개: 이동하는 짧은 순간만 덮고, 새 페이지 내용이 생기면 바로 걷음
         const veil = h('div', { 'aria-hidden': 'true',
             style: `position:fixed;inset:0;z-index:2147483600;pointer-events:none;background:${bg && bg !== 'rgba(0, 0, 0, 0)' ? bg : 'var(--uper-sheet)'};opacity:0;` });
-        const img = h('img', { alt: '', 'aria-hidden': 'true',
-            style: `position:fixed;z-index:2147483601;pointer-events:none;object-fit:cover;left:0;top:0;` +
-                `width:${from.width}px;height:${from.height}px;border-radius:12px;` +
-                `transform:translate(${from.left}px,${from.top}px);transform-origin:0 0;will-change:transform;` });
+        // 섬네일 상자: 사진 + 로딩 표시(어두운 그라데이션, 빛 쓸림, 도는 원)
+        const hero = h('div', { class: 'uper-hero', 'aria-hidden': 'true' });
+        const img = h('img', { alt: '' });
         img.src = (thumb && thumb.tagName === 'IMG' && thumb.currentSrc) || `https://i.ytimg.com/vi/${id}/${shorts ? 'hqdefault' : 'mqdefault'}.jpg`;
-        document.body.append(veil, img);
+        const spin = svgEl('svg', { class: 'spin', viewBox: '0 0 48 48' },
+            svgEl('circle', { class: 'trk', cx: '24', cy: '24', r: '20' }),
+            svgEl('circle', { class: 'arc', cx: '24', cy: '24', r: '20', pathLength: '100' }));
+        hero.append(img, h('div', { class: 'shade' }), h('div', { class: 'shine' }), spin);
+        Object.assign(hero.style, { position: 'fixed', left: '0px', top: '0px', width: from.width + 'px', height: from.height + 'px',
+            transform: `translate(${from.left}px,${from.top}px)`, borderRadius: '12px' });
+        document.body.append(veil, hero);
 
         // 목표: 일반 영상은 화면 위쪽 플레이어 자리(16:9), 쇼츠는 화면 전체
         const header = document.querySelector('ytm-mobile-topbar-renderer, #masthead-container, header');
         const top = shorts ? 0 : Math.max(0, Math.min(64, header ? header.getBoundingClientRect().bottom : 48));
         const tw = innerWidth;
         const th = shorts ? innerHeight : innerWidth * 9 / 16;
-        const sx = tw / from.width;
-        const sy = th / from.height;
 
-        veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 380, easing: SPRING.snappy, fill: 'forwards' });
-        img.animate([
-            { transform: `translate(${from.left}px,${from.top}px) scale(1,1)`, borderRadius: '12px' },
-            { transform: `translate(0px,${top}px) scale(${sx},${sy})`, borderRadius: '0px' }
+        veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: SPRING.snappy, fill: 'forwards' });
+        hero.animate([
+            { transform: `translate(${from.left}px,${from.top}px)`, width: from.width + 'px', height: from.height + 'px', borderRadius: '12px' },
+            { transform: `translate(0px,${top}px)`, width: tw + 'px', height: th + 'px', borderRadius: '0px' }
         ], { duration: 560, easing: SPRING.smooth, fill: 'forwards' });
 
-        // 커지는 중간에 실제 이동 시작 (유튜브의 페이지 전환을 그대로 사용)
         setTimeout(() => {
             navPass = true;
             try { link.click(); } finally { navPass = false; }
             setTimeout(() => { if (location.href === startHref) location.href = link.href; }, 1200);
         }, 220);
 
-        // 새 페이지가 준비되면(주소가 바뀌고 영상이 생기면) 덮개를 걷음
         const t0 = performance.now();
-        // 1단계: 새 페이지의 플레이어가 생기면 덮개를 걷고, 섬네일은 플레이어 자리에 딱 맞춰 둠
-        // 2단계: 영상이 실제로 재생되기 시작하면(검은 로딩 화면이 끝나면) 그때 섬네일을 걷음
+        // 새 페이지의 영상 자리 (화면 밖으로 스크롤돼도 찾도록 보이는지 여부는 따지지 않음)
         const playerBox = () => {
-            const cands = shorts
-                ? [mainVideo()]
-                : [...document.querySelectorAll('#player-container-id, #player-container-outer, ytm-player, #movie_player, #player')];
-            for (const el of cands) {
-                if (!el) continue;
+            let best = null;
+            for (const v of document.querySelectorAll('video')) {
+                const r = v.getBoundingClientRect();
+                if (r.width > 100 && r.height > 60 && (!best || r.width * r.height > best.width * best.height)) best = r;
+            }
+            if (best) return best;
+            if (shorts) return null;
+            for (const el of document.querySelectorAll('#player-container-id, #player-container-outer, ytm-player, #movie_player, #player')) {
                 const r = el.getBoundingClientRect();
                 if (r.width > 100 && r.height > 60) return r;
             }
             return null;
         };
+
         let follow = null;
-        let pinned = false;
+        let placed = false;          // 섬네일을 새 페이지 위치에 붙였는지
+        let docTop = 0;              // 플레이어를 못 찾을 때: 문서 기준 위치 (스크롤하면 같이 올라감)
+        let docLeft = 0;
+        const place = (r) => Object.assign(hero.style, { transform: `translate(${r.left}px,${r.top}px)`,
+            width: r.width + 'px', height: r.height + 'px', borderRadius: '0px' });
+        const track = () => {
+            const p = playerBox();
+            if (p) place(p);
+            else place({ left: docLeft - window.scrollX, top: docTop - window.scrollY, width: tw, height: th });
+            follow = requestAnimationFrame(track);
+        };
+        const attach = () => {
+            // 커지는 애니메이션이 끝난 그 자리에서 이어받아, 이후로는 플레이어(또는 문서)를 따라 움직임
+            const cur = hero.getBoundingClientRect();
+            hero.getAnimations().forEach((x) => x.cancel());
+            place(cur);
+            docTop = cur.top + window.scrollY;
+            docLeft = cur.left + window.scrollX;
+            const p = playerBox();
+            if (p && (Math.abs(p.top - cur.top) > 1 || Math.abs(p.height - cur.height) > 1)) {
+                hero.animate([
+                    { transform: `translate(${cur.left}px,${cur.top}px)`, width: cur.width + 'px', height: cur.height + 'px' },
+                    { transform: `translate(${p.left}px,${p.top}px)`, width: p.width + 'px', height: p.height + 'px' }
+                ], { duration: 380, easing: SPRING.smooth });
+                setTimeout(() => { follow = requestAnimationFrame(track); }, 380);
+            } else {
+                follow = requestAnimationFrame(track);
+            }
+            // 바로 재생되지 않으면 로딩 중임을 보여 줌
+            setTimeout(() => { if (hero.isConnected) hero.classList.add('loading'); }, 350);
+        };
         const finish = () => {
             if (follow) cancelAnimationFrame(follow);
             follow = null;
-            const a = img.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 380, easing: SPRING.snappy, fill: 'forwards' });
-            a.onfinish = () => img.remove();
+            hero.classList.remove('loading');
+            hero.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 360, easing: SPRING.snappy, fill: 'forwards' })
+                .onfinish = () => hero.remove();
             if (veil.isConnected) {
-                veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 380, easing: SPRING.snappy, fill: 'forwards' })
+                veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: SPRING.snappy, fill: 'forwards' })
                     .onfinish = () => veil.remove();
             }
-        };
-        const pinTo = (r) => {
-            // 지금 보이는 자리에서 플레이어 자리로 스프링 이동 → 그 뒤로는 플레이어를 계속 따라감
-            const cur = img.getBoundingClientRect();
-            img.getAnimations().forEach((x) => x.cancel());
-            Object.assign(img.style, { transform: 'none', borderRadius: '0px', left: r.left + 'px', top: r.top + 'px',
-                width: r.width + 'px', height: r.height + 'px' });
-            img.animate([
-                { left: cur.left + 'px', top: cur.top + 'px', width: cur.width + 'px', height: cur.height + 'px' },
-                { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' }
-            ], { duration: 420, easing: SPRING.smooth });
-            const loop = () => {
-                const p = playerBox();
-                if (p) Object.assign(img.style, { left: p.left + 'px', top: p.top + 'px', width: p.width + 'px', height: p.height + 'px' });
-                follow = requestAnimationFrame(loop);
-            };
-            setTimeout(() => { follow = requestAnimationFrame(loop); }, 420);
         };
         const playing = () => {
             const v = mainVideo();
             return v && v.readyState >= 3 && !v.paused && v.currentTime > 0.05;
         };
+        let movedAt = 0;
         let pausedSince = 0;
         const watch = () => {
-            const moved = location.href !== startHref;
-            const box = moved && playerBox();
-            if (box && !pinned) {
-                pinned = true;
-                pinTo(box);
-                veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 420, easing: SPRING.snappy, fill: 'forwards' })
+            const now = performance.now();
+            if (location.href !== startHref && !movedAt) movedAt = now;
+            // 주소가 바뀐 뒤 잠깐(새 내용이 그려질 시간)만 덮고 바로 걷음 → 제목·추천 영상이 섬네일 아래로 바로 보임
+            if (movedAt && veil.isConnected && !veil.dataset.out && (now - movedAt > 180 || playerBox())) {
+                veil.dataset.out = '1';
+                veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: SPRING.snappy, fill: 'forwards' })
                     .onfinish = () => veil.remove();
             }
+            if (movedAt && !placed && now - t0 > 520) { placed = true; attach(); }
             const v = mainVideo();
-            // 자동재생이 꺼져 멈춰 있는 경우: 준비만 되면 섬네일을 걷음
-            if (v && v.paused && v.readyState >= 2) pausedSince = pausedSince || performance.now();
+            if (v && v.paused && v.readyState >= 2) pausedSince = pausedSince || now;
             else pausedSince = 0;
-            const idleReady = pausedSince && performance.now() - pausedSince > 1200;
-            if (pinned && (playing() || idleReady)) { setTimeout(finish, 120); return; }
-            if (performance.now() - t0 > 9000) { finish(); return; }          // 너무 오래 걸리면 그냥 걷음
-            setTimeout(watch, 60);
+            const idleReady = pausedSince && now - pausedSince > 1200;     // 자동재생이 꺼진 경우
+            if (placed && (playing() || idleReady)) { setTimeout(finish, 100); return; }
+            if (now - t0 > 9000) { finish(); return; }
+            setTimeout(watch, 50);
         };
-        setTimeout(watch, 300);
+        setTimeout(watch, 250);
     }
 
     /* ---------- Termux로 보내기 ----------
