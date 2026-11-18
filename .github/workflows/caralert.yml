@@ -1,0 +1,50 @@
+name: CarAlert APK
+
+on:
+  push:
+    paths:
+      - "CarAlert/**"
+      - ".github/workflows/caralert.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: CarAlert
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk ../CarAlert.apk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CarAlert-apk
+          path: CarAlert.apk
+
+      - name: Publish release (폰에서 바로 다운로드용)
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete caralert-latest --yes --cleanup-tag || true
+          gh release create caralert-latest CarAlert.apk \
+            --target "$GITHUB_SHA" \
+            --title "입출차 알리미 (최신 빌드)" \
+            --notes "폰에서 CarAlert.apk를 받아 설치하세요. 빌드: ${GITHUB_SHA::7}"
