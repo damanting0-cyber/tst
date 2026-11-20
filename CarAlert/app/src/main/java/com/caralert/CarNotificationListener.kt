@@ -100,22 +100,28 @@ class CarNotificationListener : NotificationListenerService() {
 
         const val STATUS_ID = 1
 
+        /** 알림 제목: "아빠 입차" */
+        fun titleText(ev: CarParser.Event, car: CarParser.Car?): String =
+            "${car?.name ?: ev.plate ?: "차량"} ${ev.type.label}"
+
+        /** 음성: "아빠 입차. 현재 아빠가 집에 있습니다." */
         fun spokenText(ev: CarParser.Event, car: CarParser.Car? = null, store: Store? = null): String {
-            if (car != null && store != null) {
-                val action = if (ev.type == CarParser.Type.IN) "들어왔습니다" else "나갔습니다"
-                val home = store.cars().filter { store.isHome(it) }.map { it.name }
-                val who = if (home.isEmpty()) "지금 집에는 아무도 없습니다."
-                          else "지금 집에는 ${home.joinToString(", ")} 있습니다."
-                return "${car.name} 차가 $action. $who"
-            }
+            if (car != null && store != null) return "${titleText(ev, car)}. ${store.summary()}."
             val plate = ev.plate?.let { p ->
                 // 뒷자리 4숫자는 하나씩 읽게 띄어쓰기
                 p.dropLast(4) + " " + p.takeLast(4).toCharArray().joinToString(" ")
             } ?: "차량"
-            return "$plate, ${ev.type.label}했습니다."
+            return "$plate ${ev.type.label}."
         }
 
-        /** 알림창에 고정되는 '지금 집에 누가' 상태 알림 */
+        /** 차량별 마지막 기록: "아빠 08:30 입차 · 엄마 07:50 출차" */
+        fun detailText(store: Store): String = store.cars().joinToString(" · ") { car ->
+            val st = store.getState(car)
+            if (st == null) "${car.name} 기록 없음"
+            else "${car.name} ${st.second.substringAfter(' ')} ${st.first.label}"
+        }
+
+        /** 알림창에 고정되는 집 현황 알림 */
         fun updateStatus(ctx: Context, store: Store) {
             if (store.cars().isEmpty()) return
             val open = PendingIntent.getActivity(
@@ -124,9 +130,8 @@ class CarNotificationListener : NotificationListenerService() {
             )
             val n = Notification.Builder(ctx, STATUS_CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_menu_myplaces)
-                .setContentTitle("지금 집에 누가 있나")
-                .setContentText(store.summary())
-                .setStyle(Notification.BigTextStyle().bigText(store.summary()))
+                .setContentTitle(store.summary())
+                .setContentText(detailText(store))
                 .setContentIntent(open)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
@@ -148,15 +153,13 @@ class CarNotificationListener : NotificationListenerService() {
             )
         }
 
-        /** 기록 저장 + 내 앱 알림 표시 */
+        /** 기록 저장 + 알림 표시. 기록 형식: 시각\t이름\t입차/출차 */
         fun announce(
             ctx: Context, store: Store, ev: CarParser.Event,
             car: CarParser.Car?, app: String, raw: String
         ) {
-            val icon = if (ev.type == CarParser.Type.IN) "🚗➡️" else "⬅️🚗"
-            val who = car?.name ?: ev.plate ?: "(번호 없음)"
-            val line = "${now()}  $icon ${ev.type.label}  $who  · $app"
-            store.addHistory(line)
+            val who = car?.name ?: ev.plate ?: "번호 없음"
+            store.addHistory("${now()}\t$who\t${ev.type.label}")
             updateStatus(ctx, store)
 
             if (!store.notifyOn) return
@@ -164,18 +167,17 @@ class CarNotificationListener : NotificationListenerService() {
                 ctx, 0, Intent(ctx, MainActivity::class.java),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
+            val body = if (car != null) store.summary() else raw
             val n = Notification.Builder(ctx, CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_menu_directions)
-                .setContentTitle("$icon $who ${ev.type.label}")
-                .setContentText(if (car != null) store.summary() else raw)
-                .setStyle(Notification.BigTextStyle().bigText(
-                    if (car != null) "${store.summary()}\n\n$raw" else raw))
+                .setContentTitle(titleText(ev, car))
+                .setContentText(body)
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .build()
             try {
                 ctx.getSystemService(NotificationManager::class.java)
-                    .notify((System.currentTimeMillis() % Int.MAX_VALUE).toInt(), n)
+                    .notify((System.currentTimeMillis() % 1_000_000).toInt() + 10, n)
             } catch (_: SecurityException) { /* 알림 권한 없음 */ }
         }
     }

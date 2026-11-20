@@ -40,18 +40,29 @@ class Store(ctx: Context) {
 
     fun isHome(car: CarParser.Car) = getState(car)?.first == CarParser.Type.IN
 
-    /** "집: 아빠 · 외출: 엄마" 형태 요약 */
+    /** "현재 아빠가 집에 있습니다" / "현재 집에 아무도 없습니다" */
     fun summary(): String {
         val cars = cars()
         if (cars.isEmpty()) return "등록된 차량이 없습니다"
         val home = cars.filter { isHome(it) }.map { it.name }
-        val out = cars.filter { getState(it)?.first == CarParser.Type.OUT }.map { it.name }
-        val unknown = cars.filter { getState(it) == null }.map { it.name }
-        return buildList {
-            add("🏠 집: " + home.joinToString(", ").ifEmpty { "아무도 없음" })
-            if (out.isNotEmpty()) add("🚗 외출: " + out.joinToString(", "))
-            if (unknown.isNotEmpty()) add("❔ 기록 없음: " + unknown.joinToString(", "))
-        }.joinToString("  ·  ")
+        if (home.isEmpty()) return "현재 집에 아무도 없습니다"
+        val names = home.joinToString(", ")
+        return "현재 $names${subjectJosa(names)} 집에 있습니다"
+    }
+
+    companion object {
+        private const val SEP = "\u001E"
+
+        /** 받침 유무에 따라 이/가 */
+        fun subjectJosa(word: String): String {
+            val c = word.trim().lastOrNull() ?: return "가"
+            val hasBatchim = when (c) {
+                in '가'..'힣' -> (c - '가') % 28 != 0
+                in '0'..'9' -> c in "013678"   // 영 일 삼 육 칠 팔
+                else -> false
+            }
+            return if (hasBatchim) "이" else "가"
+        }
     }
 
     var ttsOn: Boolean
@@ -79,5 +90,4 @@ class Store(ctx: Context) {
         prefs.edit().putString(key, list.joinToString(SEP)).apply()
     }
 
-    companion object { private const val SEP = "\u001E" }
 }
