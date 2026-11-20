@@ -43,6 +43,6 @@ curl -sL https://raw.githubusercontent.com/damanting0-cyber/tst/main/termux/setu
 
 https://damanting0-cyber.github.io/tst/translate/
 
-- 처음 열면 Google Cloud Translation API 키를 넣어야 합니다. 키는 그 기기 브라우저에만 저장되고 저장소에는 올라가지 않아요.
+- 키 없이 바로 쓸 수 있어요 (Google 번역 웹 방식, 비공식). 설정(⚙️)에 Google Cloud Translation API 키를 넣으면 공식 API로 바뀝니다. 키는 그 기기 브라우저에만 저장돼요.
 - 단어 후보는 번역한 문장으로 기기 안에서 학습해서, 쓸수록 정확해집니다.
 - 읽어주기·말로 입력은 브라우저 기능을 씁니다 (Android Chrome 지원).

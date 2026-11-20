@@ -111,8 +111,8 @@ dialog input{width:100%;height:46px;border:1px solid var(--line);border-radius:1
 </div>
 
 <dialog id="dlg">
-  <h3>Google 번역 API 키</h3>
-  <p>키는 이 기기의 브라우저에만 저장되고 GitHub에는 올라가지 않아요.</p>
+  <h3>Google 번역 API 키 (선택)</h3>
+  <p>선택 사항이에요. 키가 없으면 무료 Google 번역 웹 방식으로 동작하고, 키를 넣으면 공식 API를 써요. 키는 이 기기 브라우저에만 저장돼요.</p>
   <input id="key" type="password" placeholder="AIza..." autocomplete="off">
   <div id="kmsg" class="meta"></div>
   <div class="btns">
@@ -143,15 +143,25 @@ const unesc=s=>{const d=document.createElement("textarea");d.innerHTML=s;return 
 /* ---------- Google Cloud Translation v2 ---------- */
 const cache=new Map();
 async function gtranslate(qs,target,source,signal){
-  const need=qs.filter(q=>!cache.has(target+"|"+source+"|"+q));
-  if(need.length){
+  const k=q=>target+"|"+source+"|"+q;
+  const need=qs.filter(q=>!cache.has(k(q)));
+  if(need.length&&KEY){
     const body={q:need,target,format:"text"};if(source&&source!=="auto")body.source=source;
     const r=await fetch("https://translation.googleapis.com/language/translate/v2?key="+encodeURIComponent(KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal});
     const j=await r.json().catch(()=>({}));
     if(!r.ok)throw Object.assign(new Error(j?.error?.message||("HTTP "+r.status)),{status:r.status});
-    j.data.translations.forEach((t,i)=>cache.set(target+"|"+source+"|"+need[i],{t:unesc(t.translatedText),d:t.detectedSourceLanguage||source}));
+    j.data.translations.forEach((t,i)=>cache.set(k(need[i]),{t:unesc(t.translatedText),d:t.detectedSourceLanguage||source}));
+  }else if(need.length){
+    /* 키 없이: Google 번역 웹 엔드포인트 (비공식) */
+    await Promise.all(need.map(async q=>{
+      const u="https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl="+encodeURIComponent(source||"auto")+"&tl="+encodeURIComponent(target)+"&q="+encodeURIComponent(q);
+      const r=await fetch(u,{signal});
+      if(!r.ok)throw Object.assign(new Error(r.status===429?"요청이 너무 많아요. 잠시 후 다시":"HTTP "+r.status),{status:r.status});
+      const j=await r.json();
+      cache.set(k(q),{t:(j[0]||[]).map(x=>x[0]||"").join(""),d:j[2]||source});
+    }));
   }
-  return qs.map(q=>cache.get(target+"|"+source+"|"+q));
+  return qs.map(q=>cache.get(k(q)));
 }
 
 /* ---------- 단어 예측 (기기 안에서 학습) ---------- */
@@ -203,7 +213,6 @@ async function drawChips(text){
   if(!list.length){chips.innerHTML=text.trim()?`<span class="hint">이어서 입력하세요</span>`:`<span class="hint">입력하면 단어 후보가 여기 떠요 (쓸수록 똑똑해져요)</span>`;return}
   const render=means=>chips.innerHTML=list.map((c,i)=>`<button class="chip" data-i="${i}"><b>${esc(c.show)}</b>${means&&means[i]&&means[i].t.toLowerCase()!==c.show.toLowerCase()?`<span>${esc(means[i].t)}</span>`:""}</button>`).join("");
   render(null);
-  if(!KEY)return;
   try{
     const lang=guessLang(text),to=base(tgt.value)===lang?(lang==="ko"?"en":"ko"):tgt.value;
     const m=await gtranslate(list.map(c=>c.show),to,lang==="zh"?"zh-CN":lang);
@@ -225,7 +234,6 @@ async function run(){
   const text=inp.value,my=++seq;
   drawChips(text);
   if(!text.trim()){ctrl?.abort();box.classList.remove("busy");setOut("");$("det").textContent="";$("st").textContent="";return}
-  if(!KEY){$("warn").style.display="block";return}
   ctrl?.abort();ctrl=new AbortController();box.classList.add("busy");
   try{
     let to=tgt.value,[r]=await gtranslate([text],to,src.value,ctrl.signal);
@@ -237,7 +245,7 @@ async function run(){
     clearTimeout(saveT);saveT=setTimeout(saveHist,2500);
   }catch(e){
     if(my!==seq||e.name==="AbortError")return;
-    $("st").textContent=e.status===400||e.status===403?"API 키를 확인해 주세요: "+e.message:"번역 실패: "+e.message;
+    $("st").textContent=KEY&&(e.status===400||e.status===403)?"API 키를 확인해 주세요: "+e.message:"번역 실패: "+e.message;
   }finally{if(my===seq)box.classList.remove("busy")}
 }
 const schedule=(ms=150)=>{clearTimeout(timer);timer=setTimeout(run,ms)};
@@ -313,7 +321,6 @@ $("ksave").addEventListener("click",async()=>{
   try{const[r]=await gtranslate(["안녕하세요"],"en","auto");store.set("bt.key",k);$("kmsg").textContent="연결됨: 안녕하세요 → "+r.t;$("warn").style.display="none";setTimeout(()=>{dlg.close();run()},700)}
   catch(e){KEY=old;$("kmsg").textContent="실패: "+e.message}
 });
-if(!KEY)$("warn").style.display="block";
 inp.focus();
 }
 </script>
