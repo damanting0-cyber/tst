@@ -36,3 +36,13 @@ curl -sL https://raw.githubusercontent.com/damanting0-cyber/tst/main/termux/setu
 - 받는 동안 버튼 위에 진행률 카드가 뜹니다 (MP3 변환·MP4 합치기 단계 포함).
 - 기록은 `~/uper-server.log`에 남습니다.
 
+
+## 바로 번역 (웹앱)
+
+입력하는 동안 Google 번역으로 바로 번역하고, 다음 단어 후보를 칩으로 보여 주는 번역 페이지입니다.
+
+https://damanting0-cyber.github.io/tst/translate/
+
+- 처음 열면 Google Cloud Translation API 키를 넣어야 합니다. 키는 그 기기 브라우저에만 저장되고 저장소에는 올라가지 않아요.
+- 단어 후보는 번역한 문장으로 기기 안에서 학습해서, 쓸수록 정확해집니다.
+- 읽어주기·말로 입력은 브라우저 기능을 씁니다 (Android Chrome 지원).

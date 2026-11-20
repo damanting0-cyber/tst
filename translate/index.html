@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#dff1f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#041820" media="(prefers-color-scheme: dark)">
+<title>바로 번역</title>
+<link rel="preconnect" href="https://translation.googleapis.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:light dark;
+  --bg:light-dark(#dff1f7,#041820);--pad:light-dark(#ffffff,#0a2a37);--ink:light-dark(#06222e,#e6f4f9);
+  --mute:light-dark(#4d6a76,#8fb0bd);--line:light-dark(#c4e0ea,#16404f);--out:light-dark(#06222e,#dff1f7);
+  --outink:light-dark(#e6f6fb,#06222e);--hot:#ff2e7e;--chip:light-dark(#eef8fb,#0f3443)}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Noto Sans KR",system-ui,sans-serif;overflow-x:clip}
+.wrap{max-width:760px;margin:0 auto;padding:clamp(16px,4vw,40px) max(4vw,14px) 48px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+h1{font:600 clamp(26px,6vw,36px)/1.05 "Space Grotesk","Noto Sans KR",sans-serif;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 18px;font-size:14px}
+.langs{display:grid;grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr);gap:8px;align-items:center;margin-bottom:10px}
+select,button,input{font:inherit;color:inherit}
+select{width:100%;height:46px;border:1px solid var(--line);border-radius:12px;background:var(--pad);padding:0 12px;font-size:16px;font-weight:500}
+.swap{height:46px;width:48px;border-radius:12px;border:1px solid var(--line);background:var(--pad);cursor:pointer;display:grid;place-items:center}
+svg{width:20px;height:20px}
+button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid var(--hot);outline-offset:2px}
+.pad{background:var(--pad);border:1px solid var(--line);border-radius:20px 20px 0 0;padding:14px 16px 8px}
+textarea{width:100%;min-height:132px;border:0;background:transparent;resize:none;font:500 clamp(18px,4.6vw,21px)/1.5 "Noto Sans KR",sans-serif;color:var(--ink);padding:0;outline:none}
+textarea::placeholder{color:var(--mute);font-weight:400}
+.row{display:flex;align-items:center;gap:6px;justify-content:space-between;min-height:36px}
+.meta{font-size:13px;color:var(--mute)}
+.ico{height:44px;min-width:44px;border:0;background:transparent;border-radius:10px;cursor:pointer;display:inline-grid;place-items:center;padding:0 8px;font-size:14px}
+.ico:hover{background:color-mix(in srgb,currentColor 10%,transparent)}
+.ico.on{color:var(--hot)}
+.seam{background:var(--chip);border-inline:1px solid var(--line);padding:10px 12px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;min-height:62px;align-items:center}
+.seam::-webkit-scrollbar{display:none}
+.chip{flex:none;height:42px;border-radius:999px;border:1px solid var(--line);background:var(--pad);padding:0 14px;cursor:pointer;display:inline-flex;align-items:baseline;gap:8px;white-space:nowrap}
+.chip b{font-weight:700}.chip span{font-size:13px;color:var(--mute)}
+.chip:first-child{border-color:var(--hot)}
+.hint{font-size:13px;color:var(--mute);padding-inline:4px}
+.out{background:var(--out);color:var(--outink);border-radius:0 0 20px 20px;padding:16px 16px 8px;min-height:150px}
+.lab{font:500 13px/1 "Space Grotesk","Noto Sans KR",sans-serif;opacity:.7;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--hot);opacity:0}
+.busy .dot{opacity:1}
+.tr{font:500 clamp(19px,4.8vw,23px)/1.5 "Noto Sans KR",sans-serif;margin:10px 0 6px;white-space:pre-wrap;overflow-wrap:anywhere;min-height:1.5em}
+.tr.empty{opacity:.45;font-weight:400}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--hot);color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:9}
+.toast.on{opacity:1;transform:translateX(-50%)}
+h2{font:600 18px/1.2 "Space Grotesk","Noto Sans KR",sans-serif;margin:32px 0 10px;display:flex;justify-content:space-between;align-items:center}
+.hist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.hist li button{width:100%;text-align:start;border:1px solid var(--line);background:var(--pad);border-radius:14px;padding:12px 14px;cursor:pointer;display:grid;gap:2px}
+.hist .s{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist .t{color:var(--mute);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.empty-h{color:var(--mute);font-size:14px}
+.warn{background:var(--hot);color:#fff;border-radius:12px;padding:12px 14px;font-size:14px;margin-bottom:12px;display:none;cursor:pointer}
+dialog{border:0;border-radius:20px;padding:20px;background:var(--pad);color:var(--ink);width:min(440px,92vw)}
+dialog::backdrop{background:#0008}
+dialog h3{margin:0 0 6px;font:600 20px/1.2 "Space Grotesk","Noto Sans KR",sans-serif}
+dialog p{margin:0 0 12px;font-size:14px;color:var(--mute)}
+dialog input{width:100%;height:46px;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:0 12px;font-size:16px}
+.btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.btn{height:44px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:transparent;cursor:pointer;font-weight:500}
+.btn.pri{background:var(--hot);border-color:var(--hot);color:#fff}
+#kmsg{font-size:13px;min-height:1.4em;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>바로 번역</h1>
+      <p class="sub">Google 번역 · 치는 동안 바로 번역하고 다음 단어를 골라 줘요.</p>
+    </div>
+    <button class="ico" id="set" aria-label="설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </header>
+  <div class="warn" id="warn">Google 번역 API 키를 먼저 넣어 주세요 (눌러서 설정)</div>
+
+  <div class="langs">
+    <select id="src" aria-label="원문 언어"></select>
+    <button class="swap" id="swap" aria-label="언어 바꾸기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg></button>
+    <select id="tgt" aria-label="번역 언어"></select>
+  </div>
+
+  <div class="pad">
+    <textarea id="inp" placeholder="여기에 입력하세요" autocomplete="off" spellcheck="false"></textarea>
+    <div class="row">
+      <span class="meta" id="det"></span>
+      <span>
+        <button class="ico" id="mic" aria-label="말로 입력" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        <button class="ico" id="clr" aria-label="지우기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </span>
+    </div>
+  </div>
+  <div class="seam" id="chips"><span class="hint">입력하면 단어 후보가 여기 떠요 (쓸수록 똑똑해져요)</span></div>
+  <div class="out" id="outbox">
+    <div class="lab"><span class="dot"></span><span id="tlab">번역</span></div>
+    <div class="tr empty" id="tr">번역이 여기에 바로 나타나요</div>
+    <div class="row">
+      <span class="meta" style="color:inherit;opacity:.7" id="st"></span>
+      <span>
+        <button class="ico" id="spk" aria-label="읽어주기" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
+        <button class="ico" id="cpy" aria-label="복사"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></svg></button>
+      </span>
+    </div>
+  </div>
+
+  <h2>최근 번역 <button class="ico" id="hclr" style="font-size:13px">비우기</button></h2>
+  <ul class="hist" id="hist"></ul>
+</div>
+
+<dialog id="dlg">
+  <h3>Google 번역 API 키</h3>
+  <p>키는 이 기기의 브라우저에만 저장되고 GitHub에는 올라가지 않아요.</p>
+  <input id="key" type="password" placeholder="AIza..." autocomplete="off">
+  <div id="kmsg" class="meta"></div>
+  <div class="btns">
+    <button class="btn" id="kdel">키 삭제</button>
+    <button class="btn" id="kcancel">닫기</button>
+    <button class="btn pri" id="ksave">저장하고 테스트</button>
+  </div>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script>
+{
+const L=[["auto","자동 감지"],["ko","한국어"],["en","영어"],["ja","일본어"],["zh-CN","중국어"],["es","스페인어"],["fr","프랑스어"],["de","독일어"],["vi","베트남어"],["th","태국어"]];
+const name=c=>(L.find(x=>x[0]===c||x[0].split("-")[0]===String(c).split("-")[0])||[c,c])[1];
+const base=c=>String(c||"").split("-")[0];
+const $=id=>document.getElementById(id);
+const src=$("src"),tgt=$("tgt"),inp=$("inp"),trEl=$("tr"),chips=$("chips"),box=$("outbox");
+src.innerHTML=L.map(([c,n])=>`<option value="${c}">${n}</option>`).join("");
+tgt.innerHTML=L.slice(1).map(([c,n])=>`<option value="${c}">${n}</option>`).join("");
+const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+src.value=store.get("bt.src","auto");tgt.value=store.get("bt.tgt","en");
+let KEY=store.get("bt.key",""),hist=store.get("bt.hist",[]);
+let seq=0,ctrl=null,timer=null,saveT=null,last={tr:"",to:tgt.value,text:"",from:""};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const toast=m=>{const t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("on"),1500)};
+const unesc=s=>{const d=document.createElement("textarea");d.innerHTML=s;return d.value};
+
+/* ---------- Google Cloud Translation v2 ---------- */
+const cache=new Map();
+async function gtranslate(qs,target,source,signal){
+  const need=qs.filter(q=>!cache.has(target+"|"+source+"|"+q));
+  if(need.length){
+    const body={q:need,target,format:"text"};if(source&&source!=="auto")body.source=source;
+    const r=await fetch("https://translation.googleapis.com/language/translate/v2?key="+encodeURIComponent(KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw Object.assign(new Error(j?.error?.message||("HTTP "+r.status)),{status:r.status});
+    j.data.translations.forEach((t,i)=>cache.set(target+"|"+source+"|"+need[i],{t:unesc(t.translatedText),d:t.detectedSourceLanguage||source}));
+  }
+  return qs.map(q=>cache.get(target+"|"+source+"|"+q));
+}
+
+/* ---------- 단어 예측 (기기 안에서 학습) ---------- */
+const SEED={
+ ko:"안녕하세요 감사합니다 죄송합니다 괜찮아요 부탁드립니다 확인 회의 일정 오늘 내일 어제 지금 다음 주 이번 시간 가능 문의 요청 검토 자료 보고서 결과 진행 완료 예정 관련 내용 고객 제품 생산 납품 주문 가격 견적 계약 담당자 연락 메일 전화 회신 공유 첨부 파일 문제 확인했습니다 알겠습니다 말씀 드립니다 수 있습니다 있을까요 하겠습니다 해주세요 주세요 어디 언제 얼마 무엇 어떻게 왜 화장실 식당 호텔 공항 역 택시 버스 지하철 길 메뉴 추천 계산 영수증 예약 체크인 체크아웃 도와주세요 천천히 다시".split(" "),
+ en:"the to and of a in is it you that for on with as this be at have are we I please thank thanks sorry hello hi could would will can should let me know about meeting schedule today tomorrow yesterday next week this time available check confirm request review report result progress complete plan related customer product production delivery order price quote contract contact email call reply share attached file issue understand where when how much what why restroom restaurant hotel airport station taxi bus subway menu recommend bill receipt reservation help slowly again".split(" ")
+};
+let VOC=store.get("bt.voc",{});   // {lang:{w:{f:count,n:{next:count}}}}
+const clean=w=>w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,"");
+const tokens=t=>t.split(/\s+/).map(clean).filter(Boolean);
+function vocab(lang){
+  lang=base(lang);if(!VOC[lang])VOC[lang]={};
+  return VOC[lang];
+}
+function learn(text,lang){
+  const v=vocab(lang),tk=tokens(text);
+  tk.forEach((w,i)=>{const e=v[w]||(v[w]={f:0,n:{}});e.f++;if(tk[i+1])e.n[tk[i+1]]=(e.n[tk[i+1]]||0)+1});
+  store.set("bt.voc",VOC);
+}
+function guessLang(text){
+  if(src.value!=="auto")return base(src.value);
+  if(last.from&&last.text&&text.startsWith(last.text.slice(0,3)))return base(last.from);
+  if(/[가-힣ㄱ-ㆎ]/.test(text))return"ko";
+  if(/[぀-ヿ]/.test(text))return"ja";
+  if(/[一-鿿]/.test(text))return"zh";
+  return"en";
+}
+function predict(text){
+  if(!text.trim())return[];
+  const lang=guessLang(text),v=vocab(lang),seed=SEED[lang]||[];
+  const endsSpace=/\s$/.test(text),tk=tokens(text);
+  const prev=endsSpace?tk[tk.length-1]:tk[tk.length-2];
+  const part=endsSpace?"":clean(text.split(/\s+/).pop()||"");
+  const score=w=>{let s=(v[w]?.f||0);if(prev&&v[prev]?.n[w])s+=v[prev].n[w]*10;const si=seed.indexOf(w);if(si>=0)s+=0.5-si/seed.length/4;return s};
+  let pool=new Set([...Object.keys(v),...seed]);
+  let out=[];
+  if(part){
+    const lp=part.toLowerCase();
+    out=[...pool].filter(w=>w.toLowerCase().startsWith(lp)&&w.toLowerCase()!==lp)
+      .sort((a,b)=>score(b)-score(a)).slice(0,5)
+      .map(w=>({show:w,add:w.slice(part.length)}));
+  }else if(prev&&v[prev]){
+    out=Object.entries(v[prev].n).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([w])=>({show:w,add:(endsSpace?"":" ")+w}));
+  }
+  return out;
+}
+async function drawChips(text){
+  const list=predict(text);chips._list=list;
+  if(!list.length){chips.innerHTML=text.trim()?`<span class="hint">이어서 입력하세요</span>`:`<span class="hint">입력하면 단어 후보가 여기 떠요 (쓸수록 똑똑해져요)</span>`;return}
+  const render=means=>chips.innerHTML=list.map((c,i)=>`<button class="chip" data-i="${i}"><b>${esc(c.show)}</b>${means&&means[i]&&means[i].t.toLowerCase()!==c.show.toLowerCase()?`<span>${esc(means[i].t)}</span>`:""}</button>`).join("");
+  render(null);
+  if(!KEY)return;
+  try{
+    const lang=guessLang(text),to=base(tgt.value)===lang?(lang==="ko"?"en":"ko"):tgt.value;
+    const m=await gtranslate(list.map(c=>c.show),to,lang==="zh"?"zh-CN":lang);
+    if(chips._list===list)render(m);
+  }catch{}
+}
+chips.addEventListener("click",e=>{
+  const b=e.target.closest(".chip");if(!b)return;const c=chips._list[+b.dataset.i];if(!c)return;
+  inp.value+=c.add+(/[\p{L}\p{N}]$/u.test(c.add)?" ":"");inp.focus();
+  inp.setSelectionRange(inp.value.length,inp.value.length);run();
+});
+
+/* ---------- 번역 실행 ---------- */
+function setOut(text,to){
+  if(!text){trEl.textContent="번역이 여기에 바로 나타나요";trEl.classList.add("empty");$("tlab").textContent="번역";return}
+  trEl.textContent=text;trEl.classList.remove("empty");$("tlab").textContent=name(to);
+}
+async function run(){
+  const text=inp.value,my=++seq;
+  drawChips(text);
+  if(!text.trim()){ctrl?.abort();box.classList.remove("busy");setOut("");$("det").textContent="";$("st").textContent="";return}
+  if(!KEY){$("warn").style.display="block";return}
+  ctrl?.abort();ctrl=new AbortController();box.classList.add("busy");
+  try{
+    let to=tgt.value,[r]=await gtranslate([text],to,src.value,ctrl.signal);
+    if(my!==seq)return;
+    if(base(r.d)===base(to)){to=base(to)==="ko"?"en":"ko";[r]=await gtranslate([text],to,src.value,ctrl.signal);if(my!==seq)return}
+    last={tr:r.t,to,text,from:r.d};
+    setOut(r.t,to);$("st").textContent="";
+    $("det").textContent=src.value==="auto"&&r.d?`${name(r.d)} 감지됨`:"";
+    clearTimeout(saveT);saveT=setTimeout(saveHist,2500);
+  }catch(e){
+    if(my!==seq||e.name==="AbortError")return;
+    $("st").textContent=e.status===400||e.status===403?"API 키를 확인해 주세요: "+e.message:"번역 실패: "+e.message;
+  }finally{if(my===seq)box.classList.remove("busy")}
+}
+const schedule=(ms=150)=>{clearTimeout(timer);timer=setTimeout(run,ms)};
+inp.addEventListener("input",()=>{drawChips(inp.value);schedule()});
+inp.addEventListener("keydown",e=>{if(e.key==="Tab"&&chips._list?.length){e.preventDefault();chips.querySelector(".chip")?.click()}});
+src.addEventListener("change",()=>{store.set("bt.src",src.value);run()});
+tgt.addEventListener("change",()=>{store.set("bt.tgt",tgt.value);run()});
+$("swap").addEventListener("click",()=>{
+  const from=src.value==="auto"?(last.from||"ko"):src.value;
+  const nt=L.find(x=>base(x[0])===base(from))?.[0]||"ko",ns=L.find(x=>base(x[0])===base(last.to||tgt.value))?.[0]||tgt.value;
+  src.value=ns;tgt.value=nt===ns?(base(ns)==="ko"?"en":"ko"):nt;
+  store.set("bt.src",src.value);store.set("bt.tgt",tgt.value);
+  if(last.tr&&inp.value.trim())inp.value=last.tr;
+  run();
+});
+$("clr").addEventListener("click",()=>{saveHist();inp.value="";inp.focus();run()});
+$("cpy").addEventListener("click",async()=>{
+  if(!last.tr)return;
+  try{await navigator.clipboard.writeText(last.tr);toast("복사했어요");saveHist()}catch{toast("복사에 실패했어요")}
+});
+
+/* ---------- 읽어주기 / 말로 입력 (브라우저 기능) ---------- */
+if("speechSynthesis" in window){
+  $("spk").hidden=false;
+  $("spk").addEventListener("click",()=>{
+    if(!last.tr)return;speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(last.tr);u.lang=last.to;
+    u.onstart=()=>$("spk").classList.add("on");u.onend=u.onerror=()=>$("spk").classList.remove("on");
+    speechSynthesis.speak(u);
+  });
+}
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(SR){
+  $("mic").hidden=false;let rec=null;
+  $("mic").addEventListener("click",()=>{
+    if(rec){rec.stop();return}
+    rec=new SR();rec.lang=src.value==="auto"?"ko-KR":src.value;rec.interimResults=true;
+    const before=inp.value?inp.value.replace(/\s*$/," "):"";
+    rec.onresult=e=>{inp.value=before+[...e.results].map(r=>r[0].transcript).join("");run()};
+    rec.onend=rec.onerror=()=>{rec=null;$("mic").classList.remove("on")};
+    rec.start();$("mic").classList.add("on");
+  });
+}
+
+/* ---------- 기록 ---------- */
+function saveHist(){
+  if(!last.tr||!last.text.trim())return;
+  const item={s:last.text.trim(),t:last.tr,to:last.to,from:last.from};
+  if(hist[0]?.s===item.s)return;
+  learn(item.s,item.from||guessLang(item.s));
+  hist=hist.filter(h=>h.s!==item.s&&!item.s.startsWith(h.s));
+  hist.unshift(item);hist=hist.slice(0,30);store.set("bt.hist",hist);drawHist();
+}
+function drawHist(){
+  $("hist").innerHTML=hist.length?hist.map((h,i)=>`<li><button data-i="${i}"><span class="s">${esc(h.s)}</span><span class="t">${esc(h.t)}</span></button></li>`).join(""):`<li class="empty-h">번역한 문장이 여기에 쌓여요. 눌러서 다시 불러올 수 있어요.</li>`;
+}
+$("hist").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-i]");if(!b)return;const h=hist[+b.dataset.i];
+  inp.value=h.s;last={tr:h.t,to:h.to,text:h.s,from:h.from};setOut(h.t,h.to);drawChips("");inp.focus();scrollTo({top:0,behavior:"smooth"});
+});
+$("hclr").addEventListener("click",()=>{hist=[];store.set("bt.hist",hist);drawHist()});
+drawHist();
+
+/* ---------- API 키 설정 ---------- */
+const dlg=$("dlg");
+const openSet=()=>{$("key").value=KEY;$("kmsg").textContent="";dlg.showModal()};
+$("set").addEventListener("click",openSet);$("warn").addEventListener("click",openSet);
+$("kcancel").addEventListener("click",()=>dlg.close());
+$("kdel").addEventListener("click",()=>{KEY="";store.set("bt.key","");$("key").value="";$("kmsg").textContent="삭제했어요"});
+$("ksave").addEventListener("click",async()=>{
+  const k=$("key").value.trim();if(!k)return;
+  $("kmsg").textContent="확인 중…";const old=KEY;KEY=k;cache.clear();
+  try{const[r]=await gtranslate(["안녕하세요"],"en","auto");store.set("bt.key",k);$("kmsg").textContent="연결됨: 안녕하세요 → "+r.t;$("warn").style.display="none";setTimeout(()=>{dlg.close();run()},700)}
+  catch(e){KEY=old;$("kmsg").textContent="실패: "+e.message}
+});
+if(!KEY)$("warn").style.display="block";
+inp.focus();
+}
+</script>
+</body>
+</html>
