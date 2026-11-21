@@ -7,6 +7,7 @@
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
 <title>내 재산 변화</title>
+<meta name="build" content="20261122050615">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="내 재산">
@@ -2459,6 +2460,31 @@ if(vv){
   vv.addEventListener('resize', syncKeyboard);
   vv.addEventListener('scroll', syncKeyboard);
 }
+
+/* ---------- 새 버전 확인 ----------
+   홈 화면 앱은 예전 페이지를 오래 붙잡고 있어서, 열 때마다 서버의 최신 페이지와 버전을 비교해 다르면 새로고침 */
+(function(){
+  if(location.protocol === 'file:') return;
+  const mine = document.querySelector('meta[name="build"]')?.content;
+  let checking = false;
+  async function check(){
+    if(checking || !navigator.onLine) return;
+    checking = true;
+    try{
+      const res = await fetch(location.pathname, { cache: 'reload' }); // 받아 온 최신 페이지로 브라우저 캐시도 갱신
+      const txt = await res.text();
+      const m = txt.match(/<meta name="build" content="([^"]+)"/);
+      if(m && m[1] !== mine){
+        let tried = null;
+        try{ tried = sessionStorage.getItem('reloadedFor'); sessionStorage.setItem('reloadedFor', m[1]); }catch(e){}
+        if(tried !== m[1]) location.reload(); // 같은 버전으로 두 번 새로고침하지 않음
+      }
+    }catch(e){}
+    checking = false;
+  }
+  addEventListener('load', check);
+  document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') check(); });
+})();
 
 /* ---------- 시작 ---------- */
 let state = load();
