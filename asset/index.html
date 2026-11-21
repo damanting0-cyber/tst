@@ -7,7 +7,7 @@
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
 <title>내 재산 변화</title>
-<meta name="build" content="20261122050615">
+<meta name="build" content="20261122050825">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="내 재산">
@@ -273,7 +273,7 @@ button:focus:not(:focus-visible){outline:none}
 .tr-chart svg{display:block; width:100%; height:auto; overflow:visible}
 .tr-chart .ln{fill:none; stroke:var(--ink); stroke-width:1.5; stroke-linejoin:round; stroke-linecap:round}
 .tr-chart .base{stroke:var(--rule)}
-.tr-chart .dot{fill:var(--ink)}
+.tr-chart .dot,.tr-chart .lone{fill:var(--ink)}
 .tr-chart .sel{display:none; fill:var(--ink); stroke:var(--raised); stroke-width:2.5}
 .tr-lbl{position:absolute; font-size:12px; color:var(--ink2); white-space:nowrap; transform:translate(-50%,-100%)}
 .tr-ax{display:flex; justify-content:space-between; font-size:12px; color:var(--ink3); margin-top:6px}
@@ -808,10 +808,14 @@ function openTrend(cid){
   const t0 = dayNum(first.d), span = Math.max(dayNum(cur.d) - t0, 1);
   const X = d => PX + (dayNum(d) - t0) / span * (W - PX * 2);
   const Y = v => PT + (hi - v) / (hi - lo) * (H - PT - PB);
-  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.d).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
+  // 하루 간격으로만 선을 이음. 기록이 빈 날은 선을 끊고, 앞뒤로 이어진 날이 없는 기록은 점으로 표시
+  const cont = (i, j) => pts[i] && pts[j] && dayNum(pts[j].d) - dayNum(pts[i].d) === 1;
+  const path = pts.map((p, i) => `${i && cont(i - 1, i) ? 'L' : 'M'}${X(p.d).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
+  const lone = pts.filter((p, i) => !cont(i - 1, i) && !cont(i, i + 1) && i !== pts.length - 1)
+    .map(p => `<circle class="lone" r="1.8" cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}"/>`).join('');
   const lbl = (p, cls) => `<span class="tr-lbl ${cls}" style="left:${(X(p.d) / W * 100).toFixed(2)}%; top:${((Y(p.v) - 7) / H * 100).toFixed(2)}%">${short(p.v)}</span>`;
   chart.innerHTML = `<div class="tr-plot"><svg viewBox="0 0 ${W} ${H}"><line class="base" x1="0" y1="${H - .5}" x2="${W}" y2="${H - .5}"/>
-      <path class="ln" d="${path}"/><circle class="dot" r="3.5" cx="${X(cur.d).toFixed(1)}" cy="${Y(cur.v).toFixed(1)}"/><circle class="sel" r="5"/></svg>
+      <path class="ln" d="${path}"/>${lone}<circle class="dot" r="3.5" cx="${X(cur.d).toFixed(1)}" cy="${Y(cur.v).toFixed(1)}"/><circle class="sel" r="5"/></svg>
     ${lbl(first, 'a')}${lbl(cur, 'b')}</div>
     <div class="tr-ax"><span>${fmtDay(first.d, false)}</span><span>${fmtDay(cur.d, false)}</span></div>`;
   // 양끝 금액이 가장자리 밖으로 나가지 않도록
