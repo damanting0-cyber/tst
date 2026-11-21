@@ -1,0 +1,2366 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no, date=no">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+<title>내 재산 변화</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="내 재산">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="data:image/png;base64,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">
+<link rel="icon" href="data:image/png;base64,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">
+<!-- 아이폰은 기본 글꼴(SF)을 쓰고, 다른 기기에서만 가장 닮은 Pretendard를 씀. 못 받아와도 화면은 그대로 뜸 -->
+<link rel="stylesheet" media="print" onload="this.media='all'" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* ---------- 종이 한 장 ----------
+   흰 바탕에 검은 잉크만 (다크 모드는 반대). 카드·그림자 없이 여백과 가는 선으로 구역을 나눔.
+   선택된 것은 언제나 '꽉 찬 잉크': 기간 알약 · 달력 표식 · 들어 올린 줄
+   움직임 규칙: ① 사라질 때 흐려지지 않고 밀려 나가거나 접힘 ② 숫자는 굴러서 바뀜 ③ 끌 때는 손가락을 그대로 따라감 */
+:root{
+  color-scheme:light dark;
+  --paper:#fff; --ink:#000; --ink2:#707070; --ink3:#b6b6b6; --rule:#e8e8e8; --wash:#f3f3f3;
+  --raised:#fff; --dim:rgba(0,0,0,.34);
+  --pad:24px;
+  --spring:cubic-bezier(.3,1.3,.5,1);   /* 살짝 넘쳤다 돌아오는 도착 */
+  --smooth:cubic-bezier(.22,1,.36,1);   /* 넘침 없이 부드럽게 멈춤 */
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#000; --ink:#fff; --ink2:#8e8e8e; --ink3:#555; --rule:#242424; --wash:#161616;
+    --raised:#151515; --dim:rgba(0,0,0,.62);
+  }
+}
+@supports (transition-timing-function: linear(0, 1)){
+  :root{
+    --spring:linear(0, 0.028, 0.098, 0.195, 0.304, 0.417, 0.526, 0.627, 0.717, 0.795, 0.86, 0.912, 0.953, 0.985, 1.007, 1.022, 1.032, 1.037, 1.038, 1.037, 1.035, 1.031, 1.027, 1.023, 1.018, 1.015, 1.011, 1.008, 1.006, 1.003, 1.002, 1.001, 1);
+    --smooth:linear(0, 0.03, 0.1, 0.191, 0.289, 0.385, 0.475, 0.557, 0.629, 0.692, 0.745, 0.791, 0.829, 0.861, 0.887, 0.908, 0.926, 0.941, 0.952, 0.962, 0.969, 0.976, 0.981, 0.985, 0.988, 0.99, 0.992, 0.994, 0.995, 0.996, 1);
+  }
+}
+
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent}
+html{background:var(--paper); -webkit-text-size-adjust:100%}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Apple SD Gothic Neo","Pretendard Variable",Pretendard,"Malgun Gothic","Noto Sans KR",sans-serif;
+  font-size:16px; line-height:1.4; letter-spacing:-.01em; font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased; word-break:keep-all;
+  user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+}
+button{font:inherit; color:inherit; letter-spacing:inherit; background:none; border:0; cursor:pointer; text-align:inherit}
+input,textarea{font:inherit; color:inherit; letter-spacing:inherit; user-select:text; -webkit-user-select:text; caret-color:var(--ink)}
+input::placeholder,textarea::placeholder{color:var(--ink3); opacity:1}
+input::-webkit-calendar-picker-indicator{display:none !important}   /* 항목 이름 추천 목록의 기본 화살표 숨김 */
+input:focus-visible{outline:none}
+svg{display:block}
+h2,h3{font:inherit}
+button:focus:not(:focus-visible){outline:none}
+:focus-visible{outline:2px solid var(--ink); outline-offset:2px; border-radius:8px}
+
+.page{
+  max-width:460px; margin:0 auto;
+  padding:calc(env(safe-area-inset-top,0px) + 22px) var(--pad) calc(env(safe-area-inset-bottom,0px) + 44px + var(--kb,0px));
+}
+.sec + .sec{margin-top:24px; padding-top:20px; border-top:1px solid var(--rule)}
+
+/* ---------- 굴러서 바뀌는 글자 ---------- */
+.rc{display:inline-block; position:relative; clip-path:inset(0 -2px)}
+.rg{display:inline-block}
+.rg.old{position:absolute; left:0; top:0}
+.rc.sp{width:.2em}
+
+/* ---------- 요약 ---------- */
+.sum-date{font-size:14px; color:var(--ink2); line-height:1.3}
+.hero{height:60px; display:flex; align-items:flex-end}
+.hero-num{font-size:46px; font-weight:300; line-height:1.14; letter-spacing:-.025em; white-space:nowrap}
+.hero-num .u{font-size:.46em; font-weight:400; letter-spacing:0; margin:0 .05em 0 .1em}
+.hero-num.none{font-size:34px !important; color:var(--ink3); transition:font-size .45s var(--smooth), color .45s var(--smooth)}
+.sum-row{display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:34px; margin-top:4px}
+.delta{flex:1; min-width:0; font-size:14px; color:var(--ink2); line-height:1.35}
+.delta b{font-weight:400; color:var(--ink); margin-right:.4em; white-space:nowrap}
+.tri{display:inline-block; font-size:.7em; margin-right:.35em; transform:translateY(-.08em)}
+
+/* 기간 알약: 흰 알약이 '차이' 혼합으로 겹친 곳을 뒤집음 → 지나가는 글자가 알약 가장자리에서 정확히 반전됨 */
+.seg{
+  position:relative; flex:none; display:grid; grid-template-columns:repeat(3,46px); height:30px;
+  isolation:isolate; background:var(--paper); touch-action:none; cursor:pointer;
+}
+.seg button{position:relative; height:100%; font-size:14px; color:var(--ink2); text-align:center; transition:color .2s}
+.seg button::before{content:""; position:absolute; inset:-8px 0}
+.seg button.on{color:var(--ink)}
+.seg-thumb{
+  position:absolute; left:0; top:0; width:46px; height:30px; border-radius:15px; z-index:2;
+  background:#fff; mix-blend-mode:difference; pointer-events:none; will-change:transform;
+  transition:transform .5s var(--spring);
+}
+
+/* ---------- 그래프 ---------- */
+#chartArea{margin:14px calc(var(--pad) * -1) 0; overflow:hidden; touch-action:pan-y; cursor:pointer}
+#track{display:flex; will-change:transform}
+.panel{min-width:0; padding:0 var(--pad)}
+.pwrap{position:relative; overflow:hidden}
+.chart{width:100%; height:auto}
+.chart path,.chart line{vector-effect:non-scaling-stroke; fill:none}
+.base{stroke:var(--rule); stroke-width:1}
+.seg-l{stroke:var(--ink); stroke-width:1.5; stroke-linecap:round}
+.seg-out{fill:none; stroke:var(--ink3); stroke-width:1.5; stroke-linecap:round; opacity:.55}
+.seg-l.gap{stroke:var(--ink3); stroke-dasharray:1.5 4.5}   /* 기록이 빈 날을 건너뛴 구간 */
+.pt,.end{fill:var(--ink)}
+.pnote{position:absolute; inset:0; display:grid; place-items:center; font-size:13px; color:var(--ink3)}
+.amt-lbl{
+  position:absolute; left:0; top:0; padding:0 3px; background:var(--paper);
+  font-size:11px; line-height:1.3; color:var(--ink2); white-space:nowrap; pointer-events:none; will-change:transform;
+}
+/* 고른 날 표시: 세로선은 바닥에서 자라고 점은 그 자리에서 커짐. 옮길 때는 미끄러져 감 */
+.cur-line,.cur-dot{position:absolute; pointer-events:none; transition:transform .34s var(--spring); will-change:transform}
+.cur-line{left:-.5px; top:0; bottom:0; width:1px; background:var(--ink3); transform-origin:50% 100%; transform:scaleY(0)}
+.cur-dot{left:-5px; top:-5px; width:10px; height:10px; border-radius:50%; background:var(--ink); box-shadow:0 0 0 2.5px var(--paper); transform:scale(0)}
+.pwrap.scrub .cur-line,.pwrap.scrub .cur-dot{transition:transform .09s ease-out}
+.axis{position:relative; height:12px; margin-top:8px; font-size:11px; line-height:12px; color:var(--ink3)}
+.axis span{position:absolute; top:0; transform:translateX(-50%); transition:color .2s}
+.axis span.on{color:var(--ink)}
+.axis.ends{display:flex; justify-content:space-between}
+.axis.ends span{position:static; transform:none}
+.pfoot{display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-top:14px; min-height:18px; font-size:13px; line-height:1.35; color:var(--ink2)}
+.pfoot b{font-weight:400; color:var(--ink); white-space:nowrap}
+
+/* ---------- 달력 ---------- */
+.cal-head{display:flex; align-items:center; justify-content:space-between; height:36px}
+.cal-title{display:flex; gap:.32em; font-size:17px; font-weight:600; line-height:1.3}
+.cal-tools{display:flex; align-items:center; margin-right:-9px}
+.ico-btn{width:36px; height:36px; display:grid; place-items:center; color:var(--ink2); border-radius:50%; transition:transform .3s var(--spring), color .15s}
+.ico-btn svg{width:20px; height:20px}
+.ico-btn:active{transform:scale(.84); color:var(--ink)}
+/* '오늘'은 오늘을 벗어났을 때만 아래에서 올라옴 */
+.today-btn{font-size:14px; padding:8px 10px; clip-path:inset(4px 0)}
+.today-btn span{display:block; transition:transform .5s var(--spring)}
+.today-btn.hide{pointer-events:none}
+.today-btn.hide span{transform:translateY(170%); transition:transform .2s cubic-bezier(.5,0,.9,.45)}
+.week,.cal-page{display:grid; grid-template-columns:repeat(7,1fr); text-align:center}
+.week{margin-top:8px; font-size:12px; line-height:1; color:var(--ink3)}
+.week span{padding-bottom:8px}
+#calClip{margin:0 calc(var(--pad) * -1); padding:0 var(--pad); overflow:hidden; touch-action:pan-y}
+#calPages{position:relative; will-change:transform}
+.cal-page{position:relative; isolation:isolate; background:var(--paper)}
+.cal-page.peek{position:absolute; top:0; width:100%}
+.day{height:54px; display:flex; flex-direction:column; align-items:center; padding-top:2px; gap:2px}
+.day .num{position:relative; width:36px; height:36px; display:grid; place-items:center; font-size:16px; line-height:1}
+.day .amt{font-size:10px; line-height:1; letter-spacing:-.02em; color:var(--ink2); white-space:nowrap}
+.day.we .num{color:var(--ink2)}
+.day.today .num{font-weight:600; color:var(--ink)}
+.day.today .num::after{content:""; position:absolute; inset:3px; border:1px solid var(--ink); border-radius:50%}   /* 오늘 = 테두리 원 */
+.day.sel .num,.day.sel .amt{color:var(--ink)}
+/* 선택 표식: 누른 날짜로 미끄러져 가며 지나는 숫자를 뒤집음 */
+.mark{
+  position:absolute; left:0; top:0; width:36px; height:36px; border-radius:50%; z-index:2;
+  background:#fff; mix-blend-mode:difference; pointer-events:none; will-change:transform;
+  transform:scale(0); transition:transform .42s var(--spring);
+}
+
+/* ---------- 고른 날의 기록 ---------- */
+#dayClip{position:relative; margin:0 calc(var(--pad) * -1); overflow:hidden}
+#dayClip.reordering{overflow:visible; z-index:6}
+.day-pane.leaving{position:absolute; top:0; left:0; right:0}
+.day-head{display:flex; align-items:flex-start; justify-content:space-between; padding:0 var(--pad)}
+.day-date{font-size:14px; color:var(--ink2); line-height:1.3}
+.day-total{font-size:26px; font-weight:300; line-height:1.3; letter-spacing:-.02em; white-space:nowrap; margin-top:2px}
+.day-total .u{font-size:.6em; font-weight:400; letter-spacing:0; margin:0 .04em 0 .08em}
+.day-total.none{color:var(--ink3)}
+.day-main{min-width:0; flex:1}
+.day-line{display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px}
+.btn.carry{height:30px; padding:0 14px; border-radius:15px; font-size:13px; margin:4px 0 2px auto}
+.more{margin:-6px -9px 0 0}
+.items{margin-top:14px}
+.items:empty{display:none}
+.items::before{content:""; display:block; height:1px; margin:0 var(--pad); background:var(--rule)}
+.item{position:relative; height:56px; overflow:hidden; touch-action:pan-y}
+.item-fg{
+  position:relative; height:100%; display:flex; align-items:center; gap:12px; padding:0 var(--pad);
+  background:var(--paper); clip-path:inset(0 0 round 0); will-change:transform;
+  transition:background-color .2s, color .2s, clip-path .32s var(--smooth);
+}
+.item-fg::after{content:""; position:absolute; left:var(--pad); right:var(--pad); bottom:0; height:1px; background:var(--rule)}
+.item-fg{cursor:pointer}
+.nm{flex:0 1 auto; min-width:0; margin-right:auto; align-self:stretch; display:flex; align-items:center; cursor:text}
+.nm span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.item-val{flex:none; align-self:stretch; min-width:120px; display:flex; flex-direction:column; align-items:flex-end; justify-content:center; gap:4px; cursor:text}
+.val{line-height:1.2}
+.d{font-size:12px; line-height:1; color:var(--ink2)}
+/* 왼쪽으로 밀면 뒤에서 드러나는 삭제 */
+.act-del{
+  position:absolute; top:0; bottom:0; right:0; left:40%; visibility:hidden;
+  display:flex; align-items:center; justify-content:flex-end; background:var(--ink); color:var(--paper);
+}
+.act-del span{width:76px; text-align:center; font-size:15px; font-weight:500}
+.item.swiping .act-del{visibility:visible}
+/* 길게 눌러 들어 올린 줄: 잉크로 뒤집힌 알약 */
+.item.lifted{z-index:5; overflow:visible}
+.item.lifted .item-fg{background:var(--ink); color:var(--paper); clip-path:inset(4px 12px round 16px)}
+.item.lifted .item-fg::after{display:none}
+.item.lifted .d{color:var(--ink3)}
+/* 그 자리에서 고치기: 글자와 같은 모양의 입력칸, 밑줄만 그어짐 */
+.inline-in{
+  width:9.5em; padding:3px 0; border:0; outline:0; border-radius:0; text-align:right; line-height:1.2;
+  -webkit-appearance:none; appearance:none;
+  background:linear-gradient(var(--ink),var(--ink)) no-repeat right bottom / 100% 1px;
+  animation:underline .34s var(--smooth);
+}
+.inline-in.nm-in{flex:1; width:auto; min-width:0; text-align:left; background-position:left bottom}
+@keyframes underline{from{background-size:0 1px}}
+.blank{padding:18px var(--pad) 8px}
+.blank p{font-size:14px; line-height:1.5; color:var(--ink2)}
+
+/* 항목 추가 */
+.adder{overflow:hidden}
+.add-open{display:flex; align-items:center; gap:10px; width:100%; height:56px; color:var(--ink2); transition:color .15s}
+.add-open svg{width:18px; height:18px}
+.add-open:active{color:var(--ink)}
+.add-form{display:none}
+.adder.open .add-open{display:none}
+.adder.open .add-form{display:block}
+.add-fields{display:flex; align-items:center; gap:12px; height:56px; box-shadow:inset 0 -1px 0 var(--rule); transition:box-shadow .2s}
+.add-fields:focus-within{box-shadow:inset 0 -1px 0 var(--ink)}
+.add-fields input{min-width:0; height:100%; padding:0; border:0; outline:0; border-radius:0; background:none; -webkit-appearance:none; appearance:none}
+#newName{flex:1}
+#newAmt{flex:0 0 8.5em; text-align:right}
+.add-actions{display:flex; justify-content:flex-end; gap:6px; padding:12px 0 4px}
+
+/* 버튼: 알약 모양 하나로 통일 */
+.btn{height:44px; padding:0 20px; border-radius:22px; font-size:15px; text-align:center; white-space:nowrap; transition:transform .3s var(--spring), background-color .2s, color .2s}
+.btn:active{transform:scale(.96)}
+.btn.solid{background:var(--ink); color:var(--paper); font-weight:500}
+.btn.solid:disabled{background:var(--wash); color:var(--ink3); cursor:default; transform:none}
+.btn.ghost{color:var(--ink2)}
+.btn.line{box-shadow:inset 0 0 0 1px var(--rule)}
+.btn.wide{width:100%; height:52px; border-radius:26px; font-size:16px}
+.txt-btn{font-size:14px; color:var(--ink2); padding:10px; border-radius:10px; transition:color .15s}
+.txt-btn:active{color:var(--ink)}
+.foot{display:flex; flex-wrap:wrap; gap:0 6px; margin-top:26px; padding-top:12px; border-top:1px solid var(--rule)}
+.foot .txt-btn:first-child{margin-left:-10px}
+
+/* ---------- 아래에서 올라오는 판 ---------- */
+.sheet-bg{
+  position:fixed; inset:0 0 var(--kb,0px) 0; z-index:20;
+  display:none; align-items:flex-end; justify-content:center; background:var(--dim);
+}
+.sheet-bg.show{display:flex}
+.sheet{
+  position:relative; width:calc(100% - 16px); max-width:444px; max-height:calc(100% - env(safe-area-inset-top,0px) - 28px);
+  margin-bottom:calc(env(safe-area-inset-bottom,0px) + 8px);
+  display:flex; flex-direction:column; background:var(--raised); border-radius:32px;
+  padding:0 calc(var(--pad) - 4px) 16px; will-change:transform;
+}
+/* 판이 열리면 뒤 화면이 살짝 작아지며 물러남 */
+.page{transition:transform .55s var(--smooth)}
+.grab{padding:10px 0 8px; touch-action:none; cursor:grab}
+.grab i{display:block; width:36px; height:4px; margin:0 auto; border-radius:2px; background:var(--ink3)}
+.sheet h3{font-size:17px; font-weight:600; line-height:1.35; padding:6px 0 2px; touch-action:none}
+.sheet .msg{font-size:16px; line-height:1.55; white-space:pre-line; padding:8px 0 2px}
+.hint{font-size:13px; line-height:1.5; color:var(--ink2); margin-top:6px}
+.hint:empty,.preview:empty{display:none}
+.preview{font-size:14px; line-height:1.45; margin-top:12px}
+.preview.muted{color:var(--ink2)}
+.tr-now{font-size:30px; font-weight:300; letter-spacing:-.02em; line-height:1.25; margin-top:4px}
+.tr-now .u{font-size:.6em; font-weight:400; letter-spacing:0; margin:0 .04em 0 .08em}
+.tr-sub{font-size:14px; color:var(--ink2); margin-top:2px}
+.tr-sub b{font-weight:500; color:var(--ink)}
+.tr-chart{position:relative; margin-top:18px}
+.tr-plot{position:relative}
+.tr-chart svg{display:block; width:100%; height:auto; overflow:visible}
+.tr-chart .ln{fill:none; stroke:var(--ink); stroke-width:1.5; stroke-linejoin:round; stroke-linecap:round}
+.tr-chart .base{stroke:var(--rule)}
+.tr-chart .dot{fill:var(--ink)}
+.tr-lbl{position:absolute; font-size:12px; color:var(--ink2); white-space:nowrap; transform:translate(-50%,-100%)}
+.tr-ax{display:flex; justify-content:space-between; font-size:12px; color:var(--ink3); margin-top:6px}
+.tr-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:16px; padding-top:14px; border-top:1px solid var(--rule)}
+.tr-stats div{display:flex; flex-direction:column; gap:3px; min-width:0}
+.tr-stats span{font-size:12px; color:var(--ink2)}
+.tr-stats b{font-size:14px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tr-empty{font-size:14px; color:var(--ink2); padding:28px 0; text-align:center}
+.sheet-actions{display:flex; gap:10px; margin-top:20px}
+.sheet-actions .btn{flex:1; height:52px; border-radius:26px; font-size:16px}
+.opt-list{margin:10px calc((var(--pad) - 4px) * -1) 0; overflow-y:auto; -webkit-overflow-scrolling:touch}
+.opt{position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:56px; padding:0 calc(var(--pad) - 4px); transition:background-color .2s}
+.opt::after{content:""; position:absolute; left:calc(var(--pad) - 4px); right:calc(var(--pad) - 4px); bottom:0; height:1px; background:var(--rule)}
+.opt:last-child::after{display:none}
+.opt small{font-size:14px; color:var(--ink2)}
+.opt:active{background:var(--wash); transition:none}
+textarea{
+  display:block; width:100%; height:176px; margin-top:12px; padding:12px 14px; resize:none;
+  border:0; outline:0; border-radius:16px; background:var(--wash);
+  font-size:16px; line-height:1.45; word-break:break-all; -webkit-appearance:none; appearance:none;
+  transition:box-shadow .2s;
+}
+textarea:focus-visible{outline:none; box-shadow:inset 0 0 0 1px var(--ink)}
+
+/* ---------- 알림 (아래에서 올라왔다 아래로 내려감) ---------- */
+#snacks{
+  position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom,0px) + 16px + var(--kb,0px) + var(--lift,0px)); z-index:40;
+  display:flex; flex-direction:column; align-items:center; gap:8px; padding:0 16px; pointer-events:none;
+  transition:bottom .45s var(--smooth);   /* 판이 열리면 그 위로 비켜 올라감 */
+}
+.snack{
+  display:flex; align-items:center; gap:2px; max-width:100%; min-height:46px; padding:0 6px 0 18px; border-radius:23px;
+  background:var(--ink); color:var(--paper); font-size:14px; line-height:1.4; pointer-events:auto; will-change:transform;
+}
+.snack.plain{padding:0 18px}
+.snack span{padding:12px 0}
+.snack button{flex:none; padding:9px 12px; font-weight:600; border-radius:18px}
+.snack button:active{background:rgba(128,128,128,.3)}
+
+@media (hover:hover){
+  .txt-btn:hover,.add-open:hover,.ico-btn:hover{color:var(--ink)}
+  .opt:hover{background:var(--wash)}
+  .day:not(.sel):hover .num{background:var(--wash); border-radius:50%}
+  .btn.ghost:hover{color:var(--ink)}
+}
+@media (max-width:350px){
+  :root{--pad:18px}
+  .seg{grid-template-columns:repeat(3,40px)}
+  .seg-thumb{width:40px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important; transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+
+<main class="page">
+
+  <!-- 요약 + 그래프 -->
+  <section class="sec">
+    <div class="sum-date" id="sumDate"></div>
+    <div class="hero"><div class="hero-num" id="heroNum" role="img"></div></div>
+    <div class="sum-row">
+      <div class="delta" id="sumDelta"></div>
+      <div class="seg" id="rangeSeg" role="tablist" aria-label="그래프 기간">
+        <i class="seg-thumb"></i>
+        <button data-range="1w" role="tab">주</button>
+        <button data-range="1m" role="tab">월</button>
+        <button data-range="all" role="tab">전체</button>
+      </div>
+    </div>
+    <div id="chartArea"><div id="track"></div></div>
+  </section>
+
+  <!-- 달력 -->
+  <section class="sec">
+    <div class="cal-head">
+      <h2 class="cal-title" aria-live="polite"><span id="calYear"></span><span id="calMonth"></span></h2>
+      <div class="cal-tools">
+        <button class="today-btn hide" id="todayBtn" tabindex="-1"><span>오늘</span></button>
+        <button class="ico-btn" id="calPrev" aria-label="이전 달"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6l-6 6 6 6"/></svg></button>
+        <button class="ico-btn" id="calNext" aria-label="다음 달"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6l6 6-6 6"/></svg></button>
+      </div>
+    </div>
+    <div class="week"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+    <div id="calClip"><div id="calPages"></div></div>
+  </section>
+
+  <!-- 고른 날의 기록 -->
+  <section class="sec">
+    <div id="dayClip"></div>
+    <div class="adder" id="adder">
+      <button class="add-open" id="addOpen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>항목 추가</button>
+      <div class="add-form">
+        <div class="add-fields">
+          <input id="newName" list="catList" maxlength="20" placeholder="항목 이름" autocomplete="off" enterkeyhint="next">
+          <input id="newAmt" inputmode="numeric" placeholder="금액" autocomplete="off" enterkeyhint="done">
+        </div>
+        <div class="add-actions">
+          <button class="btn ghost" id="addCancel">취소</button>
+          <button class="btn solid" id="addOk" disabled>추가</button>
+        </div>
+      </div>
+    </div>
+    <datalist id="catList"></datalist>
+  </section>
+
+  <footer class="foot">
+    <button class="txt-btn" id="btnSave">백업 복사</button>
+    <button class="txt-btn" id="btnRestore">백업 복원</button>
+    <button class="txt-btn" id="btnReset">모두 지우기</button>
+  </footer>
+
+</main>
+
+<!-- 고르기 (백업 기간 · 그날 기록 관리) -->
+<div class="sheet-bg" id="optSheet">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="optTitle">
+    <div class="grab"><i></i></div>
+    <h3 id="optTitle"></h3>
+    <p class="hint" id="optHint"></p>
+    <div class="opt-list" id="optList"></div>
+    <div class="sheet-actions"><button class="btn line" id="optCancel">닫기</button></div>
+  </div>
+</div>
+
+<!-- 백업 붙여넣기 / 직접 복사 -->
+<div class="sheet-bg" id="textSheet">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="textTitle">
+    <div class="grab"><i></i></div>
+    <h3 id="textTitle"></h3>
+    <textarea id="textArea" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+    <p class="preview" id="restorePreview"></p>
+    <p class="hint" id="textHint"></p>
+    <div class="sheet-actions">
+      <button class="btn line" id="cancelText">닫기</button>
+      <button class="btn solid" id="confirmText">복원</button>
+      <button class="btn solid" id="copyTextBtn">복사</button>
+    </div>
+  </div>
+</div>
+
+<!-- 항목 하나의 최근 추이 -->
+<div class="sheet-bg" id="trendSheet">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="trendTitle">
+    <div class="grab"><i></i></div>
+    <h3 id="trendTitle"></h3>
+    <div class="tr-now" id="trendNow"></div>
+    <p class="tr-sub" id="trendSub"></p>
+    <div class="tr-chart" id="trendChart"></div>
+    <div class="tr-stats" id="trendStats"></div>
+    <div class="sheet-actions"><button class="btn line" id="trendClose">닫기</button></div>
+  </div>
+</div>
+
+<!-- 확인 -->
+<div class="sheet-bg" id="confirmSheet" style="z-index:30">
+  <div class="sheet" role="alertdialog" aria-modal="true" aria-describedby="confirmMsg">
+    <div class="grab"><i></i></div>
+    <p class="msg" id="confirmMsg"></p>
+    <div class="sheet-actions">
+      <button class="btn line" id="confirmNo">취소</button>
+      <button class="btn solid" id="confirmOk">확인</button>
+    </div>
+  </div>
+</div>
+
+<div id="snacks"></div>
+
+<script>
+const KEY = 'asset-tracker-v1';
+const PALETTE = ['#9fc3e8','#a6dcc2','#e8d9a0','#c9b8e8','#e8b8c4','#b8c4cc','#e8c3a8','#8fd3d0']; // 저장 형식 호환용
+const DAY_MS = 86400000;
+const DOW = '일월화수목금토';
+const $ = id => document.getElementById(id);
+const rootCss = getComputedStyle(document.documentElement);
+const SPRING = rootCss.getPropertyValue('--spring').trim() || 'cubic-bezier(.3,1.3,.5,1)';
+const SMOOTH = rootCss.getPropertyValue('--smooth').trim() || 'cubic-bezier(.22,1,.36,1)';
+const EXIT = 'cubic-bezier(.5,0,.9,.45)'; // 떠날 때: 점점 빨라지며 나감
+const SHEET = 'cubic-bezier(.32,.72,0,1)';  // 아이폰의 시트가 오르내릴 때 쓰는 곡선
+const padPx = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pad')) || 24;
+const ICON_MORE = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg>';
+
+/* ---------- 유틸 ---------- */
+const p2 = n => String(n).padStart(2,'0');
+function ymd(d){ return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); }
+function parse(s){ const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+function addDays(s, n){ const d = parse(s); d.setDate(d.getDate()+n); return ymd(d); }
+function dayNum(s){ return Math.round(parse(s).getTime() / DAY_MS); }
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const comma = n => Number(n).toLocaleString('ko-KR');
+// 좁은 자리용 짧은 금액: 3136.8만 · 1.23억
+function trimNum(v, dp){ return String(Number(v.toFixed(dp))); }
+function short(n){
+  const a = Math.abs(n), s = n < 0 ? '-' : '';
+  if(a < 10000) return s + a.toLocaleString('ko-KR');
+  if(a >= 1e8) return s + trimNum(a / 1e8, 2) + '억';
+  return s + trimNum(a / 1e4, 1) + '만';
+}
+// 읽는 금액: 3,136만 8,403원 (억·만 단위로 끊어 읽는 방식 그대로)
+function unitParts(n){
+  const a = Math.abs(Math.round(Number(n) || 0));
+  const eok = Math.floor(a / 1e8), man = Math.floor((a % 1e8) / 1e4), rest = a % 1e4;
+  const out = [];
+  if(eok) out.push([comma(eok), '억']);
+  if(man) out.push([comma(man), '만']);
+  if(rest || !out.length) out.push([comma(rest), '']);
+  return out;
+}
+function unitText(n){ return (n < 0 ? '-' : '') + unitParts(n).map(([d, u]) => d + u).join(' ') + '원'; }
+function unitTokens(n){
+  const out = [];
+  if(n < 0) out.push({ t: '-', c: '' });
+  unitParts(n).forEach(([digits, unit], i) => {
+    if(i) out.push({ t: '', c: 'sp' });
+    [...digits].forEach(ch => out.push({ t: ch, c: '' }));
+    if(unit) out.push({ t: unit, c: 'u' });
+  });
+  out.push({ t: '원', c: 'u' });
+  return out;
+}
+// "11월 9일 월요일" (올해가 아니면 연도 포함)
+function fmtDay(s, withDow = true){
+  const d = parse(s);
+  const y = d.getFullYear() !== new Date().getFullYear() ? `${d.getFullYear()}년 ` : '';
+  return `${y}${d.getMonth()+1}월 ${d.getDate()}일` + (withDow ? ` ${DOW[d.getDay()]}요일` : '');
+}
+const monthOf = s => { const d = parse(s); return new Date(d.getFullYear(), d.getMonth(), 1); };
+const sameMonth = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+const tri = diff => `<span class="tri">${diff > 0 ? '▲' : '▼'}</span>`;
+
+/* ---------- 움직임 도구 ---------- */
+let uiReady = false; // 첫 화면은 애니메이션 없이 바로 그림
+const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const canMove = () => uiReady && !reduceMotion();
+// 스프링 곡선(linear())을 모르는 브라우저에서도 끊기지 않도록
+function anim(el, frames, opts){
+  try{ return el.animate(frames, opts); }
+  catch(e){ return el.animate(frames, Object.assign({}, opts, { easing: 'ease-out' })); }
+}
+// 햅틱: 안드로이드는 진동, 아이폰(iOS 18 이상 Safari)은 스위치 토글 방식
+function haptic(){
+  try{
+    const a = document.activeElement;
+    if(a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) return; // 입력 중에는 키보드가 닫히지 않도록 생략
+    if(typeof navigator.vibrate === 'function'){ navigator.vibrate(8); return; }
+    const lb = document.createElement('label');
+    lb.className = 'hap'; lb.setAttribute('aria-hidden', 'true'); lb.style.display = 'none';
+    const ip = document.createElement('input');
+    ip.type = 'checkbox'; ip.setAttribute('switch', '');
+    lb.appendChild(ip);
+    document.head.appendChild(lb);
+    lb.click();
+    lb.remove();
+  }catch(e){}
+}
+// 글자를 한 칸씩 굴려서 바꿈. dir: 1 = 늘어남(아래에서 올라옴), -1 = 줄어듦(위에서 내려옴), 0 = 바로 바꿈
+// 바뀐 칸만 움직이고, 오른쪽 칸부터 차례로 시작
+function rollTo(el, tokens, dir){
+  const prev = el._tok;
+  el._tok = tokens;
+  const moving = !!(prev && dir && canMove());
+  const shift = prev ? prev.length - tokens.length : 0; // 오른쪽 끝 기준으로 짝지음
+  const frag = document.createDocumentFragment();
+  const jobs = [];
+  tokens.forEach((k, i) => {
+    const cell = document.createElement('span');
+    cell.className = 'rc' + (k.c ? ' ' + k.c : '');
+    const g = document.createElement('span');
+    g.className = 'rg';
+    g.textContent = k.t;
+    cell.appendChild(g);
+    frag.appendChild(cell);
+    if(!moving) return;
+    const p = prev[i + shift];
+    if(p && p.t === k.t && p.c === k.c) return;
+    let old = null;
+    if(p && p.t && p.c === k.c){
+      old = document.createElement('span');
+      old.className = 'rg old';
+      old.textContent = p.t;
+      cell.appendChild(old);
+    }
+    jobs.push({ g, old, delay: (tokens.length - 1 - i) * 26 });
+  });
+  el.replaceChildren(frag);
+  jobs.forEach(j => {
+    const opt = { duration: 560, delay: j.delay, easing: SMOOTH, fill: 'both' };
+    anim(j.g, [{ transform: `translateY(${dir * 106}%)` }, { transform: 'translateY(0)' }], opt);
+    if(j.old) anim(j.old, [{ transform: 'translateY(0)' }, { transform: `translateY(${-dir * 106}%)` }], opt).onfinish = () => j.old.remove();
+  });
+}
+const plainTokens = text => [...text].map(t => ({ t, c: '' }));
+function setAmount(el, n, quiet){
+  if(el._val === n && el._tok && el.firstChild) return; // 이미 같은 금액이 그려져 있으면 그대로 둠
+  const prev = el._val;
+  const wasNone = el.classList.contains('none');
+  el._val = n;
+  el.classList.remove('none');
+  el.setAttribute('aria-label', unitText(n));
+  rollTo(el, unitTokens(n), quiet ? 0 : prev == null ? (wasNone && el._tok ? 1 : 0) : (n > prev ? 1 : -1));
+}
+function setPlain(el, text, roll){
+  const had = el._val != null && el._tok && el.firstChild;
+  el._val = null;
+  el.classList.add('none');
+  el.setAttribute('aria-label', text);
+  if(roll && had){ // 금액에서 '기록 없음'으로: 글자가 굴러 내려가며 바뀜
+    rollTo(el, plainTokens(text.replace(/ /g, '\u00a0')), -1);
+  }else{ el._tok = null; el.textContent = text; }
+}
+
+/* ---------- 알림 ---------- */
+// 아래에서 올라오고, 닫힐 때는 아래로 내려감. opt.action = { label, fn } 이면 되돌리기 같은 버튼이 붙음
+function snack(msg, opt = {}){
+  const box = $('snacks');
+  if(!opt.action) box.querySelectorAll('.snack.plain').forEach(closeSnack); // 안내 문구는 하나만
+  const el = document.createElement('div');
+  el.className = 'snack' + (opt.action ? '' : ' plain');
+  el.setAttribute('role', 'status');
+  const span = document.createElement('span');
+  span.textContent = msg;
+  el.appendChild(span);
+  if(opt.action){
+    const b = document.createElement('button');
+    b.textContent = opt.action.label;
+    b.onclick = () => { closeSnack(el); haptic(); opt.action.fn(); };
+    el.appendChild(b);
+  }
+  box.appendChild(el);
+  if(!reduceMotion()){
+    const h = el.offsetHeight;
+    anim(el, [{ transform: `translateY(${h + 70}px)`, marginBottom: `${-(h + 8)}px` }, { transform: 'translateY(0)', marginBottom: '0px' }],
+      { duration: 520, easing: SPRING });
+  }
+  el._t = setTimeout(() => closeSnack(el), opt.ms || (opt.action ? 5000 : 2200));
+  return el;
+}
+function closeSnack(el){
+  if(el._closing) return;
+  el._closing = true;
+  clearTimeout(el._t);
+  if(reduceMotion()){ el.remove(); return; }
+  const h = el.offsetHeight;
+  anim(el, [{ transform: 'translateY(0)', marginBottom: '0px' }, { transform: `translateY(${h + 70}px)`, marginBottom: `${-(h + 8)}px` }],
+    { duration: 300, easing: EXIT, fill: 'forwards' }).onfinish = () => el.remove();
+}
+
+/* ---------- 아래에서 올라오는 판 ---------- */
+// 열린 판이 있으면 알림이 그 위에 뜨도록 높이를 알려 줌 (판의 버튼을 가리지 않게)
+function liftSnacks(){
+  let h = 0, open = false;
+  document.querySelectorAll('.sheet-bg.show').forEach(bg => { if(!bg._closing){ open = true; h = Math.max(h, bg.firstElementChild.offsetHeight); } });
+  document.documentElement.style.setProperty('--lift', h + 'px');
+  // 뒤 화면: 지금 보이는 곳의 가운데를 기준으로 살짝 작아짐
+  const page = document.querySelector('.page');
+  if(open && !reduceMotion()){
+    if(!page.style.transform) page.style.transformOrigin = `50% ${scrollY + innerHeight / 2 - page.offsetTop}px`;
+    page.style.transform = 'scale(.94)';
+  } else page.style.transform = '';
+}
+function openSheet(id){
+  const bg = $(id), panel = bg.firstElementChild;
+  bg.getAnimations({ subtree: true }).forEach(a => a.cancel());
+  bg._closing = false;
+  panel.style.transition = ''; panel.style.transform = '';
+  bg.classList.add('show');
+  liftSnacks();
+  if(reduceMotion()) return;
+  const dim = getComputedStyle(bg).backgroundColor;
+  anim(bg, [{ backgroundColor: 'rgba(0,0,0,0)' }, { backgroundColor: dim }], { duration: 320, easing: 'ease-out' });
+  anim(panel, [{ transform: 'translateY(calc(100% + 28px))' }, { transform: 'translateY(0)' }], { duration: 560, easing: SHEET });
+}
+// 닫힐 때 판은 흐려지지 않고 그대로 내려감. 뒤의 어두운 배경만 함께 걷힘
+function closeSheet(id){
+  const bg = $(id), panel = bg.firstElementChild;
+  if(!bg.classList.contains('show') || bg._closing) return;
+  const a = document.activeElement;
+  if(a && bg.contains(a)) a.blur();
+  const done = () => {
+    bg.classList.remove('show'); bg._closing = false;
+    panel.style.transition = ''; panel.style.transform = '';
+    bg.getAnimations({ subtree: true }).forEach(x => x.cancel());
+    liftSnacks();
+  };
+  if(reduceMotion()){ done(); return; }
+  bg._closing = true;
+  liftSnacks();
+  const from = getComputedStyle(panel).transform, dim = getComputedStyle(bg).backgroundColor;
+  // 닫힐 때도 열릴 때와 같은 스프링: 빠르게 출발해 부드럽게 빠져나감
+  anim(bg, [{ backgroundColor: dim }, { backgroundColor: 'rgba(0,0,0,0)' }], { duration: 380, easing: 'ease-out', fill: 'forwards' });
+  anim(panel, [{ transform: from === 'none' ? 'translateY(0)' : from }, { transform: 'translateY(calc(100% + 28px))' }],
+    { duration: 460, easing: SHEET, fill: 'forwards' }).onfinish = done;
+}
+// 손잡이·제목을 잡고 아래로 끌면 닫힘 (빠르게 튕겨도 닫힘). 바깥을 눌러도 닫힘
+function sheetDrag(id, dismiss){
+  const bg = $(id), panel = bg.firstElementChild;
+  let d = null;
+  panel.addEventListener('pointerdown', e => {
+    if(!e.target.closest('.grab, h3') || bg._closing) return;
+    d = { id: e.pointerId, y: e.clientY, ly: e.clientY, lt: e.timeStamp, v: 0, dy: 0 };
+    try{ panel.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  panel.addEventListener('pointermove', e => {
+    if(!d || d.id !== e.pointerId) return;
+    let dy = e.clientY - d.y;
+    const dt = e.timeStamp - d.lt;
+    if(dt > 0) d.v = (e.clientY - d.ly) / dt;
+    d.ly = e.clientY; d.lt = e.timeStamp;
+    if(dy < 0) dy = -Math.pow(-dy, .6); // 위로는 고무줄처럼 조금만
+    d.dy = dy;
+    panel.style.transition = 'none';
+    panel.style.transform = `translateY(${dy}px)`;
+  });
+  const end = e => {
+    if(!d || d.id !== e.pointerId) return;
+    const { dy, v } = d; d = null;
+    if(dy > panel.offsetHeight * .28 || (v > .5 && dy > 12)) dismiss();
+    else { panel.style.transition = `transform .5s ${SPRING}`; panel.style.transform = ''; }
+  };
+  panel.addEventListener('pointerup', end);
+  panel.addEventListener('pointercancel', end);
+  bg.addEventListener('click', e => { if(e.target === bg) dismiss(); });
+}
+// 확인: 되돌릴 수 없는 일에만 씀
+let askCancel = null;
+function ask(msg, okLabel = '확인'){
+  return new Promise(resolve => {
+    $('confirmMsg').textContent = msg;
+    $('confirmOk').textContent = okLabel;
+    let settled = false;
+    const done = v => { if(settled) return; settled = true; askCancel = null; closeSheet('confirmSheet'); resolve(v); };
+    $('confirmOk').onclick = () => done(true);
+    $('confirmNo').onclick = () => done(false);
+    askCancel = () => done(false);
+    openSheet('confirmSheet');
+  });
+}
+// 고르기: 고른 순간 onPick(value)가 바로 실행됨 (복사처럼 누른 그 순간에만 허용되는 동작을 위해)
+function pickOption({ title, hint = '', options, onPick }){
+  $('optTitle').textContent = title;
+  $('optHint').textContent = hint;
+  const list = $('optList');
+  list.innerHTML = options.map((o, i) =>
+    `<button class="opt" data-i="${i}"><span>${esc(o.label)}</span>${o.detail ? `<small>${esc(o.detail)}</small>` : ''}</button>`).join('');
+  list.onclick = e => {
+    const b = e.target.closest('.opt'); if(!b) return;
+    closeSheet('optSheet');
+    onPick(options[+b.dataset.i].value);
+  };
+  openSheet('optSheet');
+}
+
+/* ---------- 항목 하나의 최근 추이 ---------- */
+// 고른 날까지 그 항목이 기록된 최근 30번을 작은 선 그래프로 보여 줌
+function openTrend(cid){
+  const c = state.categories.find(x => x.id === cid);
+  if(!c) return;
+  const upto = view.selected;
+  const ds = sortedDates().filter(d => d <= upto && state.snapshots[d][cid] !== undefined).slice(-30);
+  const pts = ds.map(d => ({ d, v: Number(state.snapshots[d][cid]) }));
+  $('trendTitle').textContent = c.name;
+  const cur = pts.length ? pts[pts.length - 1] : null;
+  $('trendNow').innerHTML = cur ? unitTokens(cur.v).map(k => k.c === 'u' ? `<span class="u">${k.t}</span>` : k.c === 'sp' ? ' ' : k.t).join('') : '';
+  const chart = $('trendChart'), stats = $('trendStats');
+  if(pts.length < 2){
+    $('trendSub').textContent = cur ? `${fmtDay(cur.d, false)} 기록` : '';
+    chart.innerHTML = '<p class="tr-empty">기록이 두 번 이상 쌓이면 추이가 그려져요</p>';
+    stats.innerHTML = '';
+    openSheet('trendSheet');
+    return;
+  }
+  const first = pts[0], diff = cur.v - first.v;
+  $('trendSub').innerHTML = `최근 ${pts.length}번 기록 동안 <b>${diff === 0 ? '변화 없음' : tri(diff) + unitText(Math.abs(diff))}</b>`;
+  const W = 400, H = 130, PT = 22, PB = 8, PX = 6;
+  let lo = Math.min(...pts.map(p => p.v)), hi = Math.max(...pts.map(p => p.v));
+  if(lo === hi){ lo -= 1; hi += 1; }
+  const t0 = dayNum(first.d), span = Math.max(dayNum(cur.d) - t0, 1);
+  const X = d => PX + (dayNum(d) - t0) / span * (W - PX * 2);
+  const Y = v => PT + (hi - v) / (hi - lo) * (H - PT - PB);
+  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.d).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
+  const lbl = (p, cls) => `<span class="tr-lbl ${cls}" style="left:${(X(p.d) / W * 100).toFixed(2)}%; top:${((Y(p.v) - 7) / H * 100).toFixed(2)}%">${short(p.v)}</span>`;
+  chart.innerHTML = `<div class="tr-plot"><svg viewBox="0 0 ${W} ${H}"><line class="base" x1="0" y1="${H - .5}" x2="${W}" y2="${H - .5}"/>
+      <path class="ln" d="${path}"/><circle class="dot" r="3.5" cx="${X(cur.d).toFixed(1)}" cy="${Y(cur.v).toFixed(1)}"/></svg>
+    ${lbl(first, 'a')}${lbl(cur, 'b')}</div>
+    <div class="tr-ax"><span>${fmtDay(first.d, false)}</span><span>${fmtDay(cur.d, false)}</span></div>`;
+  // 양끝 금액이 가장자리 밖으로 나가지 않도록
+  chart.querySelector('.tr-lbl.a').style.transform = 'translate(0,-100%)';
+  chart.querySelector('.tr-lbl.b').style.transform = 'translate(-100%,-100%)';
+  const hiP = pts.reduce((a, b) => b.v > a.v ? b : a), loP = pts.reduce((a, b) => b.v < a.v ? b : a);
+  stats.innerHTML = `<div><span>최고</span><b>${short(hiP.v)}</b></div><div><span>최저</span><b>${short(loP.v)}</b></div>
+    <div><span>직전 대비</span><b>${(() => { const k = pts[pts.length - 1].v - pts[pts.length - 2].v; return k === 0 ? '변화 없음' : tri(k) + short(Math.abs(k)); })()}</b></div>`;
+  openSheet('trendSheet');
+}
+
+/* ---------- 저장 ---------- */
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if(s && Array.isArray(s.categories) && s.snapshots && typeof s.snapshots === 'object') return s;
+  }catch(e){}
+  return { categories: [], snapshots: {} };
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); return true; }
+  catch(e){ snack('저장하지 못했어요. 저장 공간이 부족할 수 있어요', { ms: 3500 }); return false; }
+}
+// 같은 이름의 항목을 하나로 묶음. 같은 날짜에 겹치는 금액은 합산.
+function consolidate(){
+  const firstId = {};
+  const remap = {};
+  const cats = [];
+  state.categories.forEach(c => {
+    const name = String(c.name).trim();
+    if(firstId[name]){ remap[c.id] = firstId[name]; return; }
+    firstId[name] = c.id;
+    remap[c.id] = c.id;
+    cats.push({ ...c, name });
+  });
+  if(cats.length === state.categories.length) return false;
+  Object.keys(state.snapshots).forEach(d => {
+    const nw = {};
+    Object.keys(state.snapshots[d]).forEach(cid => {
+      const nid = remap[cid] || cid;
+      nw[nid] = (nw[nid] || 0) + Number(state.snapshots[d][cid] || 0);
+    });
+    state.snapshots[d] = nw;
+  });
+  state.categories = cats;
+  return true;
+}
+
+/* ---------- 계산 ---------- */
+function sortedDates(){ return Object.keys(state.snapshots).sort(); }
+function latestDate(){
+  const all = sortedDates();
+  return all.length ? all[all.length-1] : null;
+}
+function totalOf(date){
+  const snap = state.snapshots[date] || {};
+  return state.categories.reduce((s,c) => s + (Number(snap[c.id]) || 0), 0);
+}
+function prevRecordDate(date){
+  const ds = sortedDates().filter(d => d < date);
+  return ds.length ? ds[ds.length-1] : null;
+}
+// 항목별 증감: 직전 기록일의 같은 항목과 비교
+function itemDelta(catId, date){
+  const cur = state.snapshots[date]?.[catId];
+  if(cur === undefined) return null;
+  const pk = prevRecordDate(date);
+  const prev = pk ? state.snapshots[pk][catId] : undefined;
+  if(prev === undefined) return { type:'new' };
+  const diff = Number(cur) - Number(prev);
+  return diff === 0 ? { type:'same' } : { type: diff > 0 ? 'up' : 'down', diff };
+}
+function activeAnchor(){ return view.anchor || latestDate() || ymd(new Date()); }
+// 보이는 기간: 주는 일~토, 월은 1일~말일, 전체는 첫 기록~마지막 기록
+function windowFor(anchor){
+  if(view.range === 'all'){
+    const all = sortedDates();
+    return all.length ? { start: all[0], end: all[all.length-1] } : null;
+  }
+  const d = parse(anchor);
+  if(view.range === '1w'){
+    const s = new Date(d);
+    s.setDate(d.getDate() - d.getDay());
+    return { start: ymd(s), end: addDays(ymd(s), 6) };
+  }
+  const s = new Date(d.getFullYear(), d.getMonth(), 1);
+  const e = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return { start: ymd(s), end: ymd(e) };
+}
+function periodLabel(w){
+  const yr = d => d.getFullYear() !== new Date().getFullYear() ? `${d.getFullYear()}년 ` : '';
+  if(view.range === '1w'){
+    // 목요일이 속한 달로 주를 가져감 (달을 넘기는 주는 목요일 쪽 달에 속함)
+    const last = parse(addDays(w.start, 4));
+    const n = Math.ceil((last.getDate() + new Date(last.getFullYear(), last.getMonth(), 1).getDay()) / 7);
+    return `${yr(last)}${last.getMonth()+1}월 ${n}주차`;
+  }
+  const mid = parse(addDays(w.start, 3));
+  return `${yr(mid)}${mid.getMonth()+1}월`;
+}
+function shiftAnchor(anchor, dir){
+  const a = parse(anchor);
+  if(view.range === '1w') a.setDate(a.getDate() + 7 * dir);
+  else { a.setDate(1); a.setMonth(a.getMonth() + dir); }
+  return ymd(a);
+}
+// 기록이 있는 기간까지만 넘길 수 있음 (그 너머는 고무줄처럼 버팀)
+function canShift(dir){
+  if(view.range === 'all') return false;
+  const all = sortedDates();
+  if(!all.length) return false;
+  const w = windowFor(shiftAnchor(activeAnchor(), dir));
+  return dir < 0 ? w.end >= all[0] : w.start <= all[all.length - 1];
+}
+// 위 큰 숫자가 가리키는 날: 그래프에서 고른 날, 없으면 보이는 기간의 마지막 기록
+function readoutDate(){
+  if(view.point && state.snapshots[view.point]) return view.point;
+  if(view.unpicked) return null; // 점을 눌러 선택을 푼 상태
+  const all = sortedDates();
+  if(!all.length) return null;
+  const w = windowFor(activeAnchor());
+  if(!w) return all[all.length - 1];
+  let best = null;
+  for(const d of all){ if(d <= w.end) best = d; else break; }
+  return best || all[0];
+}
+// 보이는 기간 동안의 변화: 기간 직전 기록(없으면 기간 첫 기록) → 기간 마지막 기록
+function periodChange(w){
+  const ds = sortedDates().filter(d => d >= w.start && d <= w.end);
+  if(!ds.length) return null;
+  const before = view.range === 'all' ? null : prevRecordDate(w.start);
+  const base = before ? totalOf(before) : totalOf(ds[0]);
+  return totalOf(ds[ds.length - 1]) - base;
+}
+
+// 보기 좋은 눈금 간격 (1·2·5 × 10^n)
+function niceStep(range){
+  const raw = range / 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / mag;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag;
+}
+// 주·월 보기: 모든 주(달)가 같은 y 간격(높이)을 쓰고, 위치(offset)만 달라짐
+function periodKeyOf(d){
+  if(view.range === '1w'){ const x = parse(d); x.setDate(x.getDate() - x.getDay()); return ymd(x); }
+  return d.slice(0, 7);
+}
+function rangeSpan(){
+  const groups = {};
+  sortedDates().forEach(d => { const k = periodKeyOf(d); (groups[k] = groups[k] || []).push(totalOf(d)); });
+  const vals = Object.values(groups);
+  let S = 0;
+  vals.forEach(v => { S = Math.max(S, Math.max(...v) - Math.min(...v)); });
+  if(!S) S = Math.max(1, ...vals.flat()) * 0.06; // 모든 기록 값이 같을 때
+  return S + 2 * (S * 0.1 + niceStep(S)); // 위아래 여백: 10% + 눈금 한 칸
+}
+function yRangeOf(anchor){
+  const w = windowFor(anchor);
+  if(!w) return null;
+  const vals = sortedDates().filter(d => d >= w.start && d <= w.end).map(d => totalOf(d));
+  if(!vals.length) return null;
+  if(view.range !== 'all'){
+    const R = rangeSpan();
+    const c = (Math.min(...vals) + Math.max(...vals)) / 2;
+    const min = Math.max(0, c - R / 2);
+    return { min, max: min + R };
+  }
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if(min === max){ min = max * 0.97; max = (max * 1.03) || 1; }
+  const pad = (max - min) * 0.1; // 최저/최고점이 가장자리에 붙지 않도록 약간 여백
+  return { min: Math.max(0, min - pad), max: max + pad };
+}
+// 높이 기준을 from → to 로 부드럽게 바꿈 (새 전환이 시작되면 이전 것은 멈춤)
+let tweenToken = 0;
+function tweenRange(from, to, dur, draw){
+  const token = ++tweenToken;
+  if(!to) return;
+  if(!from || reduceMotion()){ draw(to); return; }
+  const start = performance.now();
+  const step = now => {
+    if(token !== tweenToken) return;
+    const t = Math.min(1, (now - start) / dur);
+    const k = 1 - Math.pow(1 - t, 3);
+    draw({ min: from.min + (to.min - from.min) * k, max: from.max + (to.max - from.max) * k });
+    if(t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/* ---------- 요약 ---------- */
+function renderSummary(quiet){
+  const date = readoutDate();
+  const num = $('heroNum'), del = $('sumDelta');
+  if(!date){
+    const none = view.unpicked && sortedDates().length;
+    $('sumDate').textContent = none ? '' : fmtDay(ymd(new Date()));
+    setPlain(num, '기록 없음', true);
+    fitHero();
+    del.textContent = none ? '날짜를 선택해주세요' : '첫 항목을 추가해 보세요';
+    markAxis();
+    return;
+  }
+  $('sumDate').textContent = fmtDay(date);
+  const total = totalOf(date);
+  setAmount(num, total, quiet);
+  fitHero();
+  markAxis();
+  const pk = prevRecordDate(date);
+  if(!pk){ del.textContent = '첫 기록'; return; }
+  const diff = total - totalOf(pk);
+  const label = pk === addDays(date, -1) ? '전날 대비' : `${fmtDay(pk, false)} 대비`;
+  del.innerHTML = diff === 0 ? `<b>변화 없음</b>${label}` : `<b>${tri(diff)}${unitText(Math.abs(diff))}</b>${label}`;
+}
+// 금액이 길어 화면을 넘치면 글자 크기를 줄여 한 줄에 맞춤
+function fitHero(){
+  const el = $('heroNum');
+  if(el.classList.contains('none')){ el.style.fontSize = ''; return; }
+  const max = el.parentNode.clientWidth;
+  let s = 46;
+  el.style.fontSize = s + 'px';
+  while(s > 26 && el.getBoundingClientRect().width > max){ s -= 2; el.style.fontSize = s + 'px'; }
+}
+
+/* ---------- 그래프 ---------- */
+const chartArea = $('chartArea'), track = $('track');
+const CW = 400, CH = 160, CPX = 8, CPT = 24, CPB = 22;
+let chartPts = [];
+let chartScaleCache = null;
+function chartScale(){
+  if(chartScaleCache === null) chartScaleCache = (chartArea.clientWidth - padPx() * 2) / CW;
+  return chartScaleCache;
+}
+// 날짜 → 가로 위치. 주 보기는 일곱 칸의 가운데에 찍어서 아래 달력의 요일 칸과 세로로 맞춤
+function xScale(w){
+  const t0 = dayNum(w.start);
+  if(view.range === '1w') return d => (dayNum(d) - t0 + .5) / 7 * CW;
+  const span = Math.max(dayNum(w.end) - t0, 1);
+  return d => CPX + (dayNum(d) - t0) / span * (CW - CPX * 2);
+}
+// 가로 눈금: 주는 일곱 날짜, 월은 7일 간격, 전체는 처음과 끝 날짜
+function axisHTML(w){
+  if(!w) return '<div class="axis"></div>';
+  if(view.range === 'all') return `<div class="axis ends"><span>${w.start.replace(/-/g, '.')}</span><span>${w.end.replace(/-/g, '.')}</span></div>`;
+  const X = xScale(w), days = [];
+  const n = dayNum(w.end) - dayNum(w.start);
+  for(let i = 0; i <= n; i += view.range === '1w' ? 1 : 7) days.push(addDays(w.start, i));
+  return `<div class="axis">${days.map(d => `<span data-d="${d}" style="left:${(X(d) / CW * 100).toFixed(2)}%">${+d.slice(8)}</span>`).join('')}</div>`;
+}
+// 위 큰 숫자가 가리키는 날의 눈금을 진하게
+function markAxis(){
+  const date = readoutDate();
+  track.querySelectorAll('.axis span.on').forEach(el => el.classList.remove('on'));
+  const el = date && centerPanel() && centerPanel().querySelector(`.axis span[data-d="${date}"]`);
+  if(el) el.classList.add('on');
+}
+// 기록된 날짜만 점으로 표시 (기록 없는 날은 건너뜀). yr을 주면 그 높이 기준으로 계산
+function chartGeom(anchor, yr){
+  const w = windowFor(anchor);
+  if(!w) return null;
+  const pts = sortedDates().filter(d => d >= w.start && d <= w.end).map(d => ({ d, v: totalOf(d) }));
+  if(!pts.length) return null;
+  const R = yr || yRangeOf(anchor);
+  const X = xScale(w);
+  const Y = v => CPT + (R.max - v) / (R.max - R.min) * (CH - CPT - CPB);
+  // 보이는 기간 바로 앞·뒤의 기록 (양끝에서 기간 밖으로 이어지는 희미한 선용)
+  const all = sortedDates();
+  const out = view.range === 'all' ? [] : [all.filter(d => d < w.start).pop(), all.find(d => d > w.end)]
+    .map(d => d ? { x: X(d), y: Y(totalOf(d)), d } : null);
+  return { w, out, P: pts.map(p => ({ x: X(p.d), y: Y(p.v), d: p.d, v: p.v })) };
+}
+function panelAnchors(){
+  const c = activeAnchor();
+  return view.range === 'all' ? [c] : [shiftAnchor(c, -1), c, shiftAnchor(c, 1)];
+}
+const centerPanel = () => track.children[+track.dataset.c];
+// 패널의 뼈대 (위치는 layoutPanel이 채움 → 넘기는 동안 높이 기준이 바뀌어도 뼈대는 그대로)
+function panelHTML(anchor){
+  const w = windowFor(anchor);
+  const g = chartGeom(anchor);
+  const name = view.range === 'all' ? '전체 기간' : periodLabel(w);
+  const base = `<line class="base" x1="0" y1="${CH - .5}" x2="${CW}" y2="${CH - .5}"/>`;
+  const axis = axisHTML(w);
+  if(!g){
+    const note = sortedDates().length ? '이 기간에는 기록이 없어요' : '기록을 남기면 변화가 여기에 그려져요';
+    return `<div class="pwrap"><svg class="chart" viewBox="0 0 ${CW} ${CH}">${base}</svg><p class="pnote">${note}</p></div>
+      ${axis}<div class="pfoot"><span>${name}</span></div>`;
+  }
+  const P = g.P;
+  const segs = P.slice(0, -1).map((p, i) => `<path class="seg-l${dayNum(P[i+1].d) - dayNum(p.d) === 1 ? '' : ' gap'}"/>`).join('');
+  const dots = P.length > 1 && P.length <= 31 ? P.map(() => '<circle class="pt" r="2"/>').join('') : '';
+  const ch = periodChange(w);
+  const chTxt = ch === null ? '' : ch === 0 ? '변화 없음' : tri(ch) + unitText(Math.abs(ch));
+  return `<div class="pwrap">
+      <svg class="chart" viewBox="0 0 ${CW} ${CH}">${base}<path class="seg-out" data-k="a"/><path class="seg-out" data-k="b"/><g>${segs}</g><g>${dots}</g><circle class="end" r="3.5"/></svg>
+      <span class="amt-lbl" data-k="hi"></span><span class="amt-lbl" data-k="lo"></span>
+      <i class="cur-line"></i><i class="cur-dot"></i>
+    </div>
+    ${axis}<div class="pfoot"><span>${name}</span><b>${chTxt}</b></div>`;
+}
+function layoutPanel(panel, anchor, yr, isCenter){
+  const g = chartGeom(anchor, yr);
+  if(isCenter) chartPts = g ? g.P : [];
+  if(!g || !panel || !panel.querySelector('.end')) return;
+  const P = g.P, f = v => v.toFixed(1), s = chartScale();
+  panel.querySelectorAll('.seg-l').forEach((el, i) => {
+    if(P[i + 1]) el.setAttribute('d', `M${f(P[i].x)},${f(P[i].y)} L${f(P[i+1].x)},${f(P[i+1].y)}`);
+  });
+  panel.querySelectorAll('.pt').forEach((el, i) => {
+    if(P[i]){ el.setAttribute('cx', f(P[i].x)); el.setAttribute('cy', f(P[i].y)); }
+  });
+  const [oa, ob] = g.out || [];
+  panel.querySelectorAll('.seg-out').forEach(el => {
+    const o = el.dataset.k === 'a' ? oa : ob, q = el.dataset.k === 'a' ? P[0] : P[P.length - 1];
+    if(o) el.setAttribute('d', `M${f(o.x)},${f(o.y)} L${f(q.x)},${f(q.y)}`); else el.removeAttribute('d');
+  });
+  const end = panel.querySelector('.end'), last = P[P.length - 1];
+  end.setAttribute('cx', f(last.x)); end.setAttribute('cy', f(last.y));
+  // 가장 옛날 점과 가장 최근 점에 금액 (점이 위쪽 가장자리에 붙으면 아래에 적음)
+  const first = P[0];
+  const put = (k, p, flip) => {
+    const el = panel.querySelector(`.amt-lbl[data-k="${k}"]`);
+    if(!p){ el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.textContent = short(p.v);
+    const above = flip ? !(last.y > 34) : p.y > 34;
+    const left = p.x < 56, right = p.x > CW - 56;
+    const px = left ? 0 : right ? CW : p.x;
+    el.style.transform = `translate(${f(px * s)}px, ${f((p.y + (above ? -13 : 13)) * s)}px) translate(${left ? '0' : right ? '-100%' : '-50%'}, -50%)`;
+  };
+  put('hi', P.length > 1 ? first : null, last.x - first.x < 90); // 두 점이 가까우면 서로 반대쪽에 적어 겹치지 않게
+  put('lo', last);
+  if(isCenter) placeCursor(false);
+  else placeStaticCursor(panel, P, s); // 옆 기간에도 고른 날 표시를 미리 둠 → 넘기는 동안 그래프와 함께 움직임
+}
+function placeStaticCursor(panel, P, s){
+  const wrap = panel.querySelector('.pwrap');
+  const line = wrap && wrap.querySelector('.cur-line'), dot = wrap && wrap.querySelector('.cur-dot');
+  if(!line) return;
+  const p = view.point ? P.find(q => q.d === view.point) : null;
+  [line, dot].forEach(el => { el.style.transition = 'none'; });
+  const x = p ? p.x * s : 0, y = p ? p.y * s : 0, k = p ? 1 : 0;
+  line.style.transform = `translateX(${x.toFixed(1)}px) scaleY(${k})`;
+  dot.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${k})`;
+  void wrap.offsetWidth;
+  [line, dot].forEach(el => { el.style.transition = ''; });
+}
+// 고른 날 표시. animate: 미끄러져 감 / fast: 훑는 중이라 손가락에 바짝 붙음
+function placeCursor(animate, fast){
+  const panel = centerPanel();
+  const wrap = panel && panel.querySelector('.pwrap');
+  if(!wrap) return;
+  const line = wrap.querySelector('.cur-line'), dot = wrap.querySelector('.cur-dot');
+  if(!line) return;
+  const p = view.point ? chartPts.find(q => q.d === view.point) : null;
+  const s = chartScale();
+  wrap.classList.toggle('scrub', !!fast);
+  const set = (x, y, k) => {
+    line.style.transform = `translateX(${x.toFixed(1)}px) scaleY(${k})`;
+    dot.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${k})`;
+  };
+  const still = on => [line, dot].forEach(el => { el.style.transition = on ? 'none' : ''; });
+  if(!p){
+    if(wrap._cur){ if(!animate) still(true); set(wrap._cur[0], wrap._cur[1], 0); if(!animate){ void wrap.offsetWidth; still(false); } }
+    wrap._cur = null;
+    return;
+  }
+  const x = p.x * s, y = p.y * s;
+  if(!wrap._cur || !animate){
+    // 처음 나타날 때는 그 자리에서: 점이 커지고 선이 바닥에서 자람
+    still(true);
+    set(x, y, animate ? 0 : 1);
+    void wrap.offsetWidth;
+    still(false);
+  }
+  set(x, y, 1);
+  wrap._cur = [x, y];
+}
+// 전체 보기는 한 장, 주·월은 앞·현재·뒤 기간을 나란히 둠
+function renderChart(){
+  const anchors = panelAnchors();
+  const n = anchors.length, c = n === 1 ? 0 : 1;
+  track.dataset.n = n;
+  track.dataset.c = c;
+  track.style.width = `${n * 100}%`;
+  track.style.transition = 'none';
+  track.style.transform = `translateX(${-(c * 100 / n)}%)`;
+  // 넘길 수 없는 쪽(기록 범위 밖)은 비워 둠
+  track.innerHTML = anchors.map((a, i) =>
+    `<div class="panel" style="flex:0 0 ${100 / n}%">${n === 3 && i !== c && !canShift(i < c ? -1 : 1) ? '' : panelHTML(a)}</div>`).join('');
+  chartPts = [];
+  anchors.forEach((a, i) => layoutPanel(track.children[i], a, null, i === c));
+  markAxis();
+}
+// 기간을 바꾸면 선이 왼쪽부터 다시 그려짐
+function wipeChart(){
+  if(reduceMotion()) return;
+  const wrap = centerPanel() && centerPanel().querySelector('.pwrap');
+  if(!wrap) return;
+  anim(wrap, [{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: 640, easing: SMOOTH });
+}
+function nearestPoint(clientX){
+  if(!chartPts.length) return null;
+  const wrap = centerPanel().querySelector('.pwrap');
+  const rect = wrap.getBoundingClientRect();
+  const vx = (clientX - rect.left) / rect.width * CW;
+  let best = chartPts[0];
+  chartPts.forEach(p => { if(Math.abs(p.x - vx) < Math.abs(best.x - vx)) best = p; });
+  return best;
+}
+
+/* ---------- 달력 ---------- */
+const CAL_ROW = 54, MARK = 36;
+const calClip = $('calClip'), calPages = $('calPages');
+let calCur = null, calPeek = null, calBusy = false, calPending = null, calDrag = null, calSuppressAt = 0;
+const monthShift = (m, d) => new Date(m.getFullYear(), m.getMonth() + d, 1);
+const calStep = () => calPages.clientWidth + padPx() * 2; // 한 달을 넘길 때 움직이는 거리 = 화면 폭
+function buildPage(month){
+  const el = document.createElement('div');
+  el.className = 'cal-page';
+  const y = month.getFullYear(), mo = month.getMonth();
+  const first = new Date(y, mo, 1).getDay();
+  const days = new Date(y, mo + 1, 0).getDate();
+  const todayS = ymd(new Date());
+  let html = '';
+  for(let i = 0; i < first; i++) html += '<span class="day blank"></span>';
+  for(let d = 1; d <= days; d++){
+    const key = `${y}-${p2(mo+1)}-${p2(d)}`;
+    const dow = (first + d - 1) % 7;
+    const cls = 'day' + (dow === 0 || dow === 6 ? ' we' : '') + (key === todayS ? ' today' : '');
+    html += `<button class="${cls}" data-date="${key}"><span class="num">${d}</span><span class="amt">${state.snapshots[key] ? short(totalOf(key)) : ''}</span></button>`;
+  }
+  el.innerHTML = html + '<i class="mark"></i>';
+  el._month = month; el._first = first; el._rows = Math.ceil((first + days) / 7);
+  placeMark(el, false);
+  return el;
+}
+// 선택 표식을 고른 날짜 칸으로. 같은 달 안에서는 미끄러져 가고, 다른 달이면 그 자리에서 줄어들어 사라짐
+function placeMark(page, animate){
+  const mk = page.querySelector('.mark');
+  const sel = parse(view.selected);
+  page.querySelectorAll('.day.sel').forEach(x => x.classList.remove('sel'));
+  const move = animate && canMove();
+  const still = fn => { mk.style.transition = 'none'; fn(); void mk.offsetWidth; mk.style.transition = ''; };
+  if(!sameMonth(sel, page._month)){
+    const [x, y] = mk._pos || [0, 0];
+    if(move) mk.style.transform = `translate(${x}px, ${y}px) scale(0)`;
+    else still(() => { mk.style.transform = `translate(${x}px, ${y}px) scale(0)`; });
+    mk._on = false;
+    return;
+  }
+  const idx = page._first + sel.getDate() - 1;
+  const cw = calPages.clientWidth / 7;
+  const x = +((idx % 7) * cw + cw / 2 - MARK / 2).toFixed(2), y = Math.floor(idx / 7) * CAL_ROW + 2;
+  const cell = page.querySelector(`[data-date="${view.selected}"]`);
+  if(cell) cell.classList.add('sel');
+  if(!move) still(() => { mk.style.transform = `translate(${x}px, ${y}px) scale(1)`; });
+  else {
+    if(!mk._on) still(() => { mk.style.transform = `translate(${x}px, ${y}px) scale(0)`; }); // 없던 표식은 그 자리에서 커짐
+    mk.style.transform = `translate(${x}px, ${y}px) scale(1)`;
+  }
+  mk._pos = [x, y]; mk._on = true;
+}
+function setClipH(rows, animate){
+  calClip.style.transition = animate && canMove() ? `height .38s ${SMOOTH}` : 'none';
+  calClip.style.height = rows * CAL_ROW + 'px';
+}
+let calTitleKey = null;
+function setCalTitle(m){
+  const key = m.getFullYear() * 12 + m.getMonth();
+  if(key === calTitleKey) return;
+  const dir = calTitleKey === null ? 0 : key > calTitleKey ? 1 : -1;
+  calTitleKey = key;
+  rollTo($('calYear'), plainTokens(`${m.getFullYear()}년`), dir);
+  rollTo($('calMonth'), plainTokens(`${m.getMonth() + 1}월`), dir);
+}
+function syncTodayBtn(){
+  const now = new Date();
+  const away = view.selected !== ymd(now) || !sameMonth(view.month, now);
+  const b = $('todayBtn');
+  b.classList.toggle('hide', !away);
+  b.tabIndex = away ? 0 : -1;
+}
+function renderCalendar(){
+  const page = buildPage(view.month);
+  calPages.replaceChildren(page);
+  calCur = page; calPeek = null;
+  setClipH(page._rows, false);
+  setCalTitle(view.month);
+  syncTodayBtn();
+}
+function refreshCalAmounts(){
+  calPages.querySelectorAll('.day[data-date]').forEach(b => {
+    const k = b.dataset.date;
+    b.querySelector('.amt').textContent = state.snapshots[k] ? short(totalOf(k)) : '';
+  });
+}
+// 옆 달을 미리 그려서 붙여 둠 (손가락을 따라 함께 들어옴)
+function ensurePeek(dir, month){
+  const m = month || monthShift(view.month, dir);
+  const key = dir + '|' + m.getFullYear() + '-' + m.getMonth();
+  if(calPeek && calPeek._key === key) return calPeek;
+  if(calPeek) calPeek.remove();
+  const el = buildPage(m);
+  el.classList.add('peek');
+  el.style.left = dir * calStep() + 'px';
+  el._key = key; el._dir = dir;
+  calPages.appendChild(el);
+  calPeek = el;
+  setClipH(Math.max(calCur._rows, el._rows), true);
+  return el;
+}
+// pass = 넘김 확정. 옆 달이 그대로 새 화면이 됨 (다시 그리지 않으므로 끊김 없음)
+function finishCal(pass){
+  const peek = calPeek, dir = peek ? peek._dir : 0, go = !!(pass && peek);
+  const ms = reduceMotion() ? 0 : 400;
+  calBusy = true;
+  calPages.style.transition = ms ? `transform ${ms}ms ${SMOOTH}` : 'none';
+  calPages.style.transform = go ? `translateX(${-dir * calStep()}px)` : 'translateX(0px)';
+  setClipH(go ? peek._rows : calCur._rows, true);
+  if(go){ setCalTitle(peek._month); haptic(); }
+  setTimeout(() => {
+    calPages.style.transition = 'none';
+    calPages.style.transform = '';
+    if(go){
+      view.month = peek._month;
+      peek.classList.remove('peek');
+      peek.style.left = '';
+      calPages.replaceChildren(peek);
+      calCur = peek;
+    } else if(peek) peek.remove();
+    calPeek = null;
+    calBusy = false;
+    placeMark(calCur, true); // 넘기는 도중에 선택이 바뀌었으면 표식을 맞춤
+    syncTodayBtn();
+    if(calPending){ const f = calPending; calPending = null; f(); }
+  }, ms);
+}
+// 화살표·오늘·다른 달 날짜 선택: 그 달을 옆에 붙여 같은 방식으로 넘김
+function calGo(month){
+  if(calBusy){ calPending = () => calGo(month); return; }
+  if(sameMonth(month, view.month)) return;
+  ensurePeek(month > view.month ? 1 : -1, month);
+  calPages.style.transition = 'none';
+  calPages.style.transform = 'translateX(0px)';
+  void calPages.offsetWidth;
+  finishCal(true);
+}
+function selectDate(date){
+  const prev = view.selected;
+  const m = monthOf(date);
+  if(date === prev){ calGo(m); return; }
+  view.selected = date;
+  placeMark(calCur, true);
+  if(!sameMonth(m, view.month)) calGo(m);
+  renderDay(date > prev ? 1 : -1);
+  syncTodayBtn();
+}
+function goToday(){
+  haptic();
+  selectDate(ymd(new Date()));
+  $('todayBtn').classList.add('hide');
+}
+
+/* ---------- 고른 날의 기록 ---------- */
+const dayClip = $('dayClip');
+function rowHTML(c, date){
+  const v = state.snapshots[date][c.id];
+  const dl = itemDelta(c.id, date);
+  let d = '';
+  if(dl && dl.type === 'new') d = '<span class="d">신규</span>';
+  else if(dl && (dl.type === 'up' || dl.type === 'down')) d = `<span class="d">${tri(dl.diff)}${short(Math.abs(dl.diff))}</span>`;
+  return `<div class="item" data-row="${c.id}">
+    <button class="act-del" tabindex="-1" aria-label="${esc(c.name)} 삭제"><span>삭제</span></button>
+    <div class="item-fg">
+      <div class="nm" data-cid="${c.id}"><span>${esc(c.name)}</span></div>
+      <div class="item-val" data-cid="${c.id}"><span class="val">${comma(v)}</span>${d}</div>
+    </div>
+  </div>`;
+}
+function buildDayPane(){
+  const date = view.selected, snap = state.snapshots[date], has = !!snap;
+  const pane = document.createElement('div');
+  pane.className = 'day-pane';
+  const rows = has ? state.categories.filter(c => snap[c.id] !== undefined) : [];
+  const pk = prevRecordDate(date);
+  // 빈 날: 직전 기록이 있으면 '기록 없음' 왼쪽에 이어받기 버튼을 둠
+  const carry = !has && pk ? `<button class="btn solid carry" data-act="carry">${fmtDay(pk, false)} 기록 이어받기</button>` : '';
+  const blank = has || pk ? '' : '<div class="blank"><p>항목 이름과 금액을 적으면 그날의 재산으로 기록돼요.</p></div>';
+  pane.innerHTML = `<div class="day-head">
+      <div class="day-main"><div class="day-date">${fmtDay(date)}</div><div class="day-line"><div class="day-total" role="img"></div>${carry}</div></div>
+      ${has ? `<button class="ico-btn more" data-act="more" aria-label="이 날 기록 관리">${ICON_MORE}</button>` : ''}
+    </div>
+    <div class="items">${rows.map(c => rowHTML(c, date)).join('')}</div>${blank}`;
+  pane._date = date; pane._has = has;
+  return pane;
+}
+// dir: 다른 날로 옮길 때의 방향 (1 = 뒷날 → 새 내용이 오른쪽에서, -1 = 앞날 → 왼쪽에서). 0 = 같은 날을 그 자리에서 고쳐 그림
+function renderDay(dir = 0){
+  const old = dayClip.querySelector('.day-pane:not(.leaving)');
+  const pane = buildDayPane();
+  const tot = pane.querySelector('.day-total');
+  const total = pane._has ? totalOf(view.selected) : null;
+  openRow = null;
+  $('catList').innerHTML = state.categories.map(c => `<option value="${esc(c.name)}">`).join('');
+  const flash = view.flash;
+  view.flash = null;
+  const h0 = dayClip.offsetHeight;
+
+  if(dir && old && canMove()){
+    // 이전 날은 밀려 나가고 새 날이 들어옴. 높이는 함께 맞춰짐
+    dayClip.getAnimations().forEach(a => a.cancel());
+    dayClip.querySelectorAll('.day-pane.leaving').forEach(p => p.remove());
+    old.getAnimations().forEach(a => a.cancel());
+    old.classList.add('leaving');
+    dayClip.appendChild(pane);
+    if(total === null) setPlain(tot, '기록 없음'); else setAmount(tot, total, true);
+    const W = dayClip.clientWidth, h1 = pane.offsetHeight;
+    const opt = { duration: 400, easing: SMOOTH };
+    anim(old, [{ transform: 'translateX(0)' }, { transform: `translateX(${-dir * W}px)` }], { ...opt, fill: 'forwards' }).onfinish = () => old.remove();
+    anim(pane, [{ transform: `translateX(${dir * W}px)` }, { transform: 'translateX(0)' }], opt);
+    if(Math.abs(h1 - h0) > 1) anim(dayClip, [{ height: h0 + 'px' }, { height: h1 + 'px' }], opt);
+    return;
+  }
+
+  const oldTot = old && old._date === pane._date ? old.querySelector('.day-total') : null;
+  dayClip.getAnimations().forEach(a => a.cancel());
+  dayClip.replaceChildren(pane);
+  if(total === null) setPlain(tot, '기록 없음');
+  else {
+    if(oldTot && oldTot._tok){ tot._tok = oldTot._tok; tot._val = oldTot._val; } // 같은 날이면 합계가 굴러서 바뀜
+    setAmount(tot, total);
+  }
+  if(!canMove()) return;
+  const row = flash && flash !== 'all' ? pane.querySelector(`.item[data-row="${flash}"]`) : null;
+  if(row){
+    // 새로 생긴 줄은 자리를 벌리며 펼쳐짐
+    anim(row, [{ height: '0px' }, { height: row.offsetHeight + 'px' }], { duration: 400, easing: SMOOTH });
+    return;
+  }
+  const h1 = dayClip.offsetHeight;
+  if(Math.abs(h1 - h0) > 1) anim(dayClip, [{ height: h0 + 'px' }, { height: h1 + 'px' }], { duration: 400, easing: SMOOTH });
+}
+
+/* ---------- 바뀐 내용을 저장하고 화면에 반영 ---------- */
+function commit(){
+  save();
+  if(view.point && !state.snapshots[view.point]) view.point = null;
+  renderSummary();
+  renderChart();
+  refreshCalAmounts();
+  renderDay(0);
+}
+
+/* ---------- 항목 / 값 편집 (바로 저장) ---------- */
+function applyValue(date, cid, raw){
+  const n = parseFloat(String(raw).replace(/,/g, ''));
+  if(isNaN(n)){
+    if(state.snapshots[date]){
+      delete state.snapshots[date][cid];
+      if(!Object.keys(state.snapshots[date]).length) delete state.snapshots[date];
+    }
+  } else {
+    state.snapshots[date] = state.snapshots[date] || {};
+    state.snapshots[date][cid] = Math.round(n);
+  }
+}
+// 입력 중 숫자만 남기고 천 단위 쉼표를 붙임. 커서는 같은 숫자 뒤에 유지
+function fmtAmtInput(inp){
+  const raw = inp.value, caret = inp.selectionStart ?? raw.length;
+  const digitsBefore = raw.slice(0, caret).replace(/\D/g, '').length;
+  const digits = raw.replace(/\D/g, '');
+  const out = digits ? Number(digits).toLocaleString('en-US') : '';
+  if(out === raw) return;
+  let pos = 0, seen = 0;
+  while(pos < out.length && seen < digitsBefore){ if(/\d/.test(out[pos])) seen++; pos++; }
+  inp.value = out;
+  inp.setSelectionRange(pos, pos);
+}
+// 글자를 같은 모양의 입력칸으로 바꿔 그 자리에서 고침. Enter·바깥 탭 = 저장, Esc = 취소
+function inlineEdit(target, { value, cls, numeric, maxLength, onSave }){
+  const inp = document.createElement('input');
+  inp.className = 'inline-in' + (cls ? ' ' + cls : '');
+  if(numeric) inp.inputMode = 'numeric';
+  if(maxLength) inp.maxLength = maxLength;
+  inp.enterKeyHint = 'done';
+  inp.autocomplete = 'off';
+  inp.value = value;
+  target.replaceWith(inp);
+  inp.focus();
+  inp.setSelectionRange(inp.value.length, inp.value.length);
+  if(numeric) inp.addEventListener('input', () => fmtAmtInput(inp));
+  let closed = false;
+  const finish = keep => {
+    if(closed) return;
+    closed = true;
+    if(keep) onSave(inp.value);
+    commit();
+    if(pendingEdit){ // 고치던 중 다른 칸을 누른 경우: 다시 그린 줄에서 그 칸을 바로 고침
+      const { cid, kind } = pendingEdit; pendingEdit = null;
+      const el = liveItems() && liveItems().querySelector(`.item[data-row="${cid}"] ${kind === 'nm' ? '.nm' : '.item-val'}`);
+      if(el) (kind === 'nm' ? startNameEdit : startValueEdit)(el);
+    }
+  };
+  inp.addEventListener('keydown', e => {
+    if(e.key === 'Enter') inp.blur();
+    if(e.key === 'Escape') finish(false);
+  });
+  inp.addEventListener('blur', () => finish(true));
+}
+function startValueEdit(box){
+  const cid = box.dataset.cid, date = view.selected;
+  const cur = state.snapshots[date]?.[cid];
+  const d = box.querySelector('.d');
+  if(d) d.remove();
+  inlineEdit(box.querySelector('.val'), {
+    value: cur === undefined ? '' : cur.toLocaleString('en-US'), numeric: true,
+    onSave: v => applyValue(date, cid, v)
+  });
+}
+function renameCategory(cid, raw){
+  const name = raw.trim();
+  const c = state.categories.find(x => x.id === cid);
+  if(!c || !name || name === c.name) return;
+  if(state.categories.some(x => x.id !== cid && x.name === name)){
+    snack('같은 이름의 항목이 이미 있어요');
+    return;
+  }
+  c.name = name;
+}
+function startNameEdit(box){
+  const cid = box.dataset.cid;
+  const c = state.categories.find(x => x.id === cid);
+  if(!c) return;
+  inlineEdit(box, { value: c.name, cls: 'nm-in', maxLength: 20, onSave: v => renameCategory(cid, v) });
+}
+// 이름과 금액으로 그날 항목 추가 (같은 이름의 항목이 있으면 그 항목을 사용)
+function addEntry(){
+  const nameEl = $('newName'), amtEl = $('newAmt');
+  const name = nameEl.value.trim();
+  const n = parseFloat(amtEl.value.replace(/,/g, ''));
+  if(!name){ snack('항목 이름을 입력하세요'); return false; }
+  if(isNaN(n)){ snack('금액을 입력하세요'); return false; }
+  let c = state.categories.find(x => x.name === name);
+  if(!c){
+    c = { id: 'c' + Date.now().toString(36), name, color: PALETTE[state.categories.length % PALETTE.length] };
+    state.categories.push(c);
+  }
+  const isNew = state.snapshots[view.selected]?.[c.id] === undefined;
+  applyValue(view.selected, c.id, n);
+  if(isNew) view.flash = c.id;
+  return true;
+}
+// 삭제한 줄은 접히며 사라지고, 되돌리기를 누르면 다시 펼쳐짐
+function collapseRow(row, cid){
+  haptic();
+  const go = () => removeEntryWithUndo(cid);
+  if(!canMove()){ go(); return; }
+  anim(row, [{ height: row.offsetHeight + 'px' }, { height: '0px' }], { duration: 300, easing: SMOOTH, fill: 'forwards' }).onfinish = go;
+}
+function removeEntryWithUndo(cid){
+  const date = view.selected;
+  const value = state.snapshots[date]?.[cid];
+  if(value === undefined) return;
+  const name = state.categories.find(c => c.id === cid)?.name || '항목';
+  delete state.snapshots[date][cid];
+  if(!Object.keys(state.snapshots[date]).length) delete state.snapshots[date];
+  commit();
+  snack(`'${name}' 삭제됨`, { action: { label: '되돌리기', fn: () => {
+    state.snapshots[date] = { ...(state.snapshots[date] || {}), [cid]: value };
+    if(view.selected === date) view.flash = cid;
+    commit();
+  } } });
+}
+// 직전 기록을 이 날짜에 그대로 복사. 이미 기록이 있으면 덮어쓰되 되돌릴 수 있음
+function carryOver(){
+  const date = view.selected;
+  const pk = prevRecordDate(date);
+  if(!pk){ snack('이어받을 이전 기록이 없어요'); return; }
+  const before = state.snapshots[date] ? { ...state.snapshots[date] } : null;
+  state.snapshots[date] = { ...state.snapshots[pk] };
+  haptic();
+  commit();
+  snack(before ? `${fmtDay(pk, false)} 기록으로 덮어썼어요` : `${fmtDay(pk, false)} 기록을 이어받았어요`, { action: { label: '되돌리기', fn: () => {
+    if(before) state.snapshots[date] = before; else delete state.snapshots[date];
+    commit();
+  } } });
+}
+function deleteDay(){
+  const date = view.selected;
+  const before = state.snapshots[date];
+  if(!before) return;
+  delete state.snapshots[date];
+  haptic();
+  commit();
+  snack(`${fmtDay(date, false)} 기록 삭제됨`, { action: { label: '되돌리기', fn: () => { state.snapshots[date] = before; commit(); } } });
+}
+function dayMore(){
+  const date = view.selected;
+  const pk = prevRecordDate(date);
+  const options = [];
+  if(pk) options.push({ value: 'carry', label: `${fmtDay(pk, false)} 기록으로 덮어쓰기` });
+  options.push({ value: 'delete', label: '이 날 기록 삭제' });
+  pickOption({ title: fmtDay(date), options, onPick: v => { if(v === 'carry') carryOver(); else deleteDay(); } });
+}
+
+/* ---------- 백업 / 복원 ---------- */
+function openText(mode, payloadText = ''){
+  const ta = $('textArea');
+  const copy = mode === 'copy';
+  $('textTitle').textContent = copy ? '백업 데이터' : '백업 복원';
+  ta.value = copy ? payloadText : '';
+  ta.readOnly = copy;
+  ta.placeholder = copy ? '' : '복사해 둔 백업을 여기에 붙여넣으세요';
+  $('textHint').textContent = copy
+    ? '자동으로 복사하지 못했어요. 아래 복사를 누르거나 내용을 직접 복사해 보관하세요.'
+    : '백업을 지금 기록 위에 올립니다. 같은 날짜·항목은 백업 값으로 바뀌고, 나머지는 그대로 남아요.';
+  $('confirmText').style.display = copy ? 'none' : '';
+  $('copyTextBtn').style.display = copy ? '' : 'none';
+  updatePreview();
+  openSheet('textSheet');
+}
+// 붙여넣은 텍스트를 표준 { categories, snapshots } 로 바꿈. 형식이 아니면 null
+function parseBackup(text){
+  let data;
+  try{ data = JSON.parse(text); }catch(e){ return null; }
+  if(data && data.v === 2 && Array.isArray(data.c) && data.s && typeof data.s === 'object'){
+    const stamp = Date.now().toString(36);
+    const categories = data.c.map((name, i) => ({
+      id: 'k' + i + '_' + stamp, name: String(name), color: PALETTE[i % PALETTE.length]
+    }));
+    const snapshots = {};
+    Object.entries(data.s).forEach(([k, row]) => {
+      const date = '20' + k.slice(0, 2) + '-' + k.slice(2, 4) + '-' + k.slice(4, 6);
+      const snap = {};
+      row.forEach((v, i) => { if(v && categories[i]) snap[categories[i].id] = v; }); // 0 = 기록 없음
+      snapshots[date] = snap;
+    });
+    data = { categories, snapshots };
+  } else if(data && data.data && typeof data.data === 'object' && !data.categories){
+    data = fromLegacy(data);
+  }
+  return validBackup(data) ? data : null;
+}
+function describeBackup(text){
+  const data = parseBackup(text);
+  if(!data) return null;
+  const dates = Object.keys(data.snapshots).sort();
+  return { first: dates[0], last: dates[dates.length - 1], count: dates.length };
+}
+function fmtBackupRange(a, b){
+  const kor = d => { const [y, m, dd] = d.split('-').map(Number); return `${y}년 ${m}월 ${dd}일`; };
+  return a.slice(0, 7) === b.slice(0, 7) ? `${kor(a)} ~ ${+b.slice(8)}일` : `${kor(a)} ~ ${kor(b)}`;
+}
+// 붙여넣은 백업이 어느 기간의 기록인지 미리 보여줌. 올바른 백업일 때만 복원 버튼이 켜짐
+function updatePreview(){
+  const el = $('restorePreview'), ta = $('textArea'), ok = $('confirmText');
+  if(ta.readOnly){ el.textContent = ''; return; }
+  const v = ta.value.trim();
+  const info = v ? describeBackup(v) : null;
+  ok.disabled = !(info && info.count);
+  el.className = 'preview' + (info && info.count ? '' : ' muted');
+  if(!v) el.textContent = '붙여넣으면 어느 기간의 기록인지 여기에 보여요';
+  else if(!info) el.textContent = '백업 데이터가 아니에요';
+  else if(!info.count) el.textContent = '기록된 날짜가 없어요';
+  else el.textContent = `${fmtBackupRange(info.first, info.last)}, 기록 ${info.count}일`;
+}
+// 백업 형식 v2: { v:2, c:[항목이름...], s:{ "YYMMDD":[항목 순서대로 금액 또는 0] } }
+// 뒤쪽 0은 잘라서 더 짧게. 색·ID는 저장하지 않고 복원 때 새로 만듦. ym이 비면 전체
+function buildPayload(ym){
+  const dates = sortedDates().filter(d => !ym || d.startsWith(ym));
+  const used = state.categories.filter(c => dates.some(d => state.snapshots[d][c.id] !== undefined));
+  const s = {};
+  dates.forEach(d => {
+    const row = used.map(c => state.snapshots[d][c.id] ?? 0);
+    while(row.length && row[row.length - 1] === 0) row.pop();
+    s[d.slice(2).replace(/-/g, '')] = row;
+  });
+  return JSON.stringify({ v: 2, c: used.map(c => c.name), s });
+}
+// 백업 복사: 기간 목록 (전체 + 달별) → 누르면 바로 복사
+function copyBackup(){
+  const dates = sortedDates();
+  if(!dates.length){ snack('복사할 기록이 없어요'); return; }
+  const counts = {};
+  dates.forEach(d => { const ym = d.slice(0, 7); counts[ym] = (counts[ym] || 0) + 1; });
+  const yms = Object.keys(counts).sort().reverse();
+  const years = new Set(yms.map(ym => ym.slice(0, 4)));
+  const options = [{ value: '', label: '전체 기간', detail: `${dates.length}일` }].concat(yms.map(ym => {
+    const [y, m] = ym.split('-');
+    return { value: ym, label: years.size > 1 ? `${y}년 ${Number(m)}월` : `${Number(m)}월`, detail: `${counts[ym]}일` };
+  }));
+  pickOption({ title: '백업 복사', hint: '기간을 고르면 그 기간의 기록이 클립보드에 복사돼요.', options, onPick: async ym => {
+    const text = buildPayload(ym);
+    try{
+      await navigator.clipboard.writeText(text);
+      haptic();
+      snack('백업을 복사했어요');
+    }catch(e){
+      openText('copy', text);
+    }
+  } });
+}
+async function copyTextBox(){
+  const ta = $('textArea');
+  try{
+    await navigator.clipboard.writeText(ta.value);
+    snack('백업을 복사했어요');
+  }catch(e){
+    ta.select();
+    try{ document.execCommand('copy'); snack('백업을 복사했어요'); }
+    catch(err){ snack('복사하지 못했어요. 내용을 길게 눌러 직접 복사해 주세요', { ms: 3500 }); }
+  }
+}
+function validBackup(o){
+  return o && Array.isArray(o.categories) && o.snapshots && typeof o.snapshots === 'object' &&
+    o.categories.every(c => c && typeof c.id === 'string' && typeof c.name === 'string') &&
+    Object.values(o.snapshots).every(s => s && typeof s === 'object');
+}
+// 이전 버전 형식 변환: { data: { "날짜": [{id, name, amount}] } } — 이름 기준으로 묶음
+function fromLegacy(o){
+  const categories = [];
+  const idMap = {};
+  const snapshots = {};
+  Object.keys(o.data).sort().forEach(date => {
+    const items = Array.isArray(o.data[date]) ? o.data[date] : [];
+    const snap = {};
+    items.forEach(it => {
+      const name = String(it.name || '').trim();
+      if(!name) return;
+      if(!idMap[name]){
+        const newId = 'c' + categories.length + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        idMap[name] = newId;
+        categories.push({ id: newId, name, color: PALETTE[categories.length % PALETTE.length] });
+      }
+      const amt = Number(it.amount);
+      if(!isNaN(amt)) snap[idMap[name]] = Math.round(amt);
+    });
+    if(Object.keys(snap).length) snapshots[date] = snap;
+  });
+  return { categories, snapshots };
+}
+// 기존 데이터 위에 올림. 결과(날짜 수, 추가/변경 건수, 새 항목 수)를 돌려줌
+function mergeBackup(inc){
+  const idMap = {};
+  let newCats = 0;
+  inc.categories.forEach(c => {
+    let ex = state.categories.find(x => x.name === c.name) || state.categories.find(x => x.id === c.id);
+    if(!ex){
+      ex = { id: c.id, name: c.name, color: c.color || PALETTE[state.categories.length % PALETTE.length] };
+      if(state.categories.some(x => x.id === ex.id)) ex.id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      state.categories.push(ex);
+      newCats++;
+    }
+    idMap[c.id] = ex.id;
+  });
+  let added = 0, updated = 0;
+  const dates = Object.keys(inc.snapshots);
+  dates.forEach(date => {
+    const target = { ...(state.snapshots[date] || {}) };
+    Object.keys(inc.snapshots[date]).forEach(cid => {
+      const nid = idMap[cid];
+      if(!nid) return;
+      const val = Number(inc.snapshots[date][cid]);
+      const before = target[nid];
+      if(before === undefined) added++;
+      else if(before !== val) updated++;
+      target[nid] = val;
+    });
+    state.snapshots[date] = target;
+  });
+  return { dates: dates.length, added, updated, newCats };
+}
+// 복원은 바로 적용하고, 잠깐 동안 되돌릴 수 있음
+function restore(){
+  const data = parseBackup($('textArea').value);
+  if(!data){ snack('백업 데이터가 아니에요'); return; }
+  const before = JSON.stringify(state);
+  const r = mergeBackup(data);
+  consolidate();
+  closeSheet('textSheet');
+  haptic();
+  view.anchor = null;
+  commit();
+  const extra = r.newCats ? `, 새 항목 ${r.newCats}개` : '';
+  snack(`복원했어요. ${r.dates}일, 추가 ${r.added}건, 변경 ${r.updated}건${extra}`, { ms: 9000, action: { label: '되돌리기', fn: () => {
+    state = JSON.parse(before);
+    view.anchor = null;
+    commit();
+  } } });
+}
+async function clearAll(){
+  if(!await ask('모든 기록과 항목을 지울까요?\n지운 뒤에는 되돌릴 수 없어요.', '모두 지우기')) return;
+  state = { categories: [], snapshots: {} };
+  view.anchor = null;
+  commit();
+  snack('모두 지웠어요');
+}
+
+/* ---------- 이벤트: 기간 알약 ----------
+   누르면 알약이 손가락을 따라오고(빠를수록 가로로 늘어남), 놓으면 가까운 칸에 붙음 */
+const RANGES = ['1w', '1m', 'all'];
+const segEl = $('rangeSeg'), segThumb = segEl.querySelector('.seg-thumb');
+let segDrag = null, segPointerAt = 0;
+const segTW = () => segEl.clientWidth / 3;
+function placeSeg(x, sx = 1, sy = 1){
+  if(x === undefined) x = RANGES.indexOf(view.range) * segTW();
+  segThumb.style.transform = `translateX(${x.toFixed(2)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`;
+}
+function syncSeg(hot){
+  const on = hot === undefined ? view.range : RANGES[hot];
+  segEl.querySelectorAll('button').forEach(b => {
+    b.classList.toggle('on', b.dataset.range === on);
+    b.setAttribute('aria-selected', b.dataset.range === view.range);
+  });
+}
+function setRange(range){
+  if(range === view.range){ syncSeg(); return; }
+  view.range = range;
+  view.anchor = null;
+  syncSeg();
+  renderSummary();
+  renderChart();
+  wipeChart();
+}
+function segTick(){
+  const s = segDrag;
+  if(!s) return;
+  const prev = s.cur;
+  s.cur += (s.target - s.cur) * .34; // 손가락을 반 박자 늦게 따라옴
+  s.v = s.v * .7 + (s.cur - prev) * .3;
+  const st = Math.min(Math.abs(s.v) * .022, .22);
+  placeSeg(s.cur, 1.06 + st, 1.06 - st * .5);
+  const hot = Math.max(0, Math.min(2, Math.round(s.cur / segTW())));
+  if(hot !== s.hot){ s.hot = hot; syncSeg(hot); haptic(); }
+  s.raf = requestAnimationFrame(segTick);
+}
+const segTarget = (clientX, s) => Math.max(0, Math.min(segTW() * 2, clientX - segEl.getBoundingClientRect().left - s.grab));
+segEl.addEventListener('pointerdown', e => {
+  if(e.button > 0) return;
+  const tw = segTW(), idx = RANGES.indexOf(view.range);
+  const px = e.clientX - segEl.getBoundingClientRect().left;
+  const onThumb = px >= idx * tw && px <= (idx + 1) * tw;
+  segDrag = { id: e.pointerId, x0: e.clientX, cur: idx * tw, v: 0, hot: idx, raf: 0, grab: onThumb ? px - idx * tw : tw / 2 };
+  segDrag.target = segTarget(e.clientX, segDrag);
+  try{ segEl.setPointerCapture(e.pointerId); }catch(err){}
+  segThumb.style.transition = 'none';
+  segDrag.raf = requestAnimationFrame(segTick);
+});
+segEl.addEventListener('pointermove', e => {
+  if(segDrag && segDrag.id === e.pointerId) segDrag.target = segTarget(e.clientX, segDrag);
+});
+function segRelease(e, cancel){
+  const s = segDrag;
+  if(!s || (e && s.id !== e.pointerId)) return;
+  segDrag = null;
+  cancelAnimationFrame(s.raf);
+  segPointerAt = performance.now();
+  const tw = segTW();
+  const tap = e && Math.abs(e.clientX - s.x0) < 6;
+  const base = cancel ? RANGES.indexOf(view.range) * tw : tap ? s.target : s.target + s.v * 8; // 놓는 속도만큼 더 나아간 자리
+  const idx = Math.max(0, Math.min(2, Math.round(base / tw)));
+  segThumb.style.transition = '';
+  placeSeg(idx * tw);
+  if(RANGES[idx] !== view.range && s.hot !== idx) haptic();
+  setRange(RANGES[idx]);
+}
+segEl.addEventListener('pointerup', e => segRelease(e, false));
+segEl.addEventListener('pointercancel', e => segRelease(e, true));
+segEl.addEventListener('click', e => { // 키보드로 누를 때 (포인터로 누른 직후의 클릭은 무시)
+  if(performance.now() - segPointerAt < 500) return;
+  const b = e.target.closest('button[data-range]');
+  if(!b) return;
+  setRange(b.dataset.range);
+  placeSeg();
+});
+
+/* ---------- 이벤트: 그래프 ----------
+   탭 = 가장 가까운 기록 고르기(다시 누르면 해제) / 좌우로 끌기 = 기간 넘기기 / 길게 눌러 끌기 = 훑어보기 (전체 보기는 바로 훑기) */
+let d0, drag = null, settling = false, sharedR = null, suppressClick = false, scrubbing = false, holdT = 0;
+const trackOffset = () => -(+track.dataset.c) * 100 / (+track.dataset.n);
+// 끄는 동안에는 세 기간이 같은 높이 기준을 써서 선이 이어져 보임
+function beginShared(){
+  const anchors = panelAnchors();
+  const own = anchors.map(yRangeOf);
+  sharedR = own[1];
+  if(!sharedR) return;
+  const token = ++tweenToken;
+  const start = performance.now(), dur = 200;
+  const step = now => {
+    if(token !== tweenToken) return;
+    const t = Math.min(1, (now - start) / dur);
+    const k = t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    [0, 2].forEach(i => {
+      const f = own[i];
+      if(f) layoutPanel(track.children[i], anchors[i], { min: f.min + (sharedR.min - f.min) * k, max: f.max + (sharedR.max - f.max) * k }, false);
+    });
+    if(t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+// 놓은 뒤: 새로 가운데 오는 기간의 높이 기준으로 부드럽게 맞추며 자리에 붙음
+function settle(dir){
+  settling = true;
+  const n = +track.dataset.n, c = +track.dataset.c;
+  const ms = reduceMotion() ? 0 : 360;
+  const center = activeAnchor();
+  const next = dir ? shiftAnchor(center, dir) : center;
+  track.style.transition = ms ? `transform ${ms}ms ${SMOOTH}` : 'none';
+  track.style.transform = `translateX(${-((c + dir) * 100 / n)}%)`;
+  const from = sharedR || yRangeOf(center);
+  const to = yRangeOf(next) || from;
+  if(from && to) tweenRange(from, to, ms, yr => layoutPanel(track.children[c + dir], next, yr, false));
+  if(dir) haptic();
+  settleNext = dir ? next : null;
+  settleT = setTimeout(finishSettle, ms + 10);
+}
+let settleT = 0, settleNext = null;
+function finishSettle(){
+  clearTimeout(settleT);
+  settling = false;
+  sharedR = null;
+  if(settleNext){ view.anchor = settleNext; renderSummary(); } // 고른 날은 기간을 넘겨도 그대로 유지
+  settleNext = null;
+  renderChart();
+}
+// 넘어가는 중에 다시 잡으면: 지금 보이는 자리에서 이어서 끌 수 있게 함
+function grabSettling(){
+  const m = new DOMMatrix(getComputedStyle(track).transform);
+  const curX = m.m41;
+  tweenToken++;
+  finishSettle();
+  const cs = new DOMMatrix(getComputedStyle(track).transform);
+  return curX - cs.m41;
+}
+function scrubTo(clientX){
+  const best = nearestPoint(clientX);
+  if(!best || best.d === view.point) return;
+  const first = !view.point;
+  view.point = best.d; view.unpicked = false;
+  renderSummary(true); // 훑는 동안 숫자는 굴리지 않고 바로 바꿈
+  placeCursor(true, !first);
+}
+function startScrub(clientX){
+  if(!drag || !chartPts.length) return;
+  scrubbing = true;
+  try{ chartArea.setPointerCapture(drag.id); }catch(err){}
+  haptic();
+  scrubTo(clientX);
+}
+chartArea.addEventListener('pointerdown', e => {
+  if(e.button > 0 || settling) return; // 넘어가는 중에는 새 스와이프를 받지 않음
+  suppressClick = false;
+  drag = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, lt: e.timeStamp, v: 0, dx: 0, eff: 0, base: 0, cur: 0, target: 0, raf: 0, ft: 0, moved: false };
+  clearTimeout(holdT);
+  const x0 = e.clientX;
+  holdT = setTimeout(() => { if(drag && !drag.moved) startScrub(x0); }, 300);
+});
+chartArea.addEventListener('pointermove', e => {
+  const d = drag;
+  if(!d || d.id !== e.pointerId) return;
+  const dx = e.clientX - d.x, dy = e.clientY - d.y;
+  const dt = e.timeStamp - d.lt;
+  if(dt > 0) d.v = (e.clientX - d.lx) / dt;
+  d.lx = e.clientX; d.lt = e.timeStamp;
+  if(scrubbing){ scrubTo(e.clientX); return; }
+  if(!d.moved){
+    if(Math.hypot(dx, dy) > 8) clearTimeout(holdT);
+    if(Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)){ drag = null; return; } // 세로 = 화면 스크롤
+    if(Math.abs(dx) < 8) return;
+    d.moved = true;
+    try{ chartArea.setPointerCapture(e.pointerId); }catch(err){}
+    if(view.range === 'all'){ startScrub(e.clientX); return; }
+    beginShared();
+  }
+  if(Math.abs(dx) > 6) d.touched = true;
+  d.dx = dx + (d.base || 0);
+  d.eff = canShift(d.dx < 0 ? 1 : -1) ? d.dx : d.dx * .22; // 기록이 없는 쪽으로는 고무줄처럼 조금만
+  d.target = d.cur = d.eff;
+  track.style.transition = 'none';
+  track.style.transform = `translateX(calc(${trackOffset()}% + ${d.eff}px))`;
+});
+// 손가락 위치를 그대로 따라붙지 않고 부드럽게 쫓아감 → 움직이는 그래프를 잡아도 끊기지 않고 이어서 끌려 옴
+function followTick(d, t){
+  d.raf = 0;
+  if(drag !== d || scrubbing) return;
+  const dt = Math.min(48, d.ft ? t - d.ft : 16); d.ft = t;
+  const diff = d.target - d.cur;
+  d.cur = Math.abs(diff) < .3 ? d.target : d.cur + diff * (1 - Math.exp(-dt / 55));
+  track.style.transition = 'none';
+  track.style.transform = `translateX(calc(${trackOffset()}% + ${d.cur.toFixed(2)}px))`;
+  if(d.cur !== d.target || d.moved) d.raf = requestAnimationFrame(tt => followTick(d, tt));
+}
+function stopFollow(d){
+  if(!d) return;
+  cancelAnimationFrame(d.raf); d.raf = 0;
+  if(d.moved && !scrubbing && d.cur !== undefined && view.range !== 'all'){
+    track.style.transition = 'none';
+    track.style.transform = `translateX(calc(${trackOffset()}% + ${d.cur.toFixed(2)}px))`;
+    void track.offsetWidth;
+  }
+}
+function chartRelease(){
+  clearTimeout(holdT);
+  const d = drag;
+  drag = null;
+  stopFollow(d);
+  if(scrubbing){
+    scrubbing = false;
+    suppressClick = true;
+    const wrap = centerPanel() && centerPanel().querySelector('.pwrap');
+    if(wrap) wrap.classList.remove('scrub');
+    return;
+  }
+  if(!d || !d.moved) return;
+  suppressClick = true;
+  if(view.range === 'all') return;
+  if(d.base && !d.touched){ settle(0); return; } // 넘어가는 중 가만히 잡았다 놓음 → 가던 자리로 마저 감
+  const dir = d.dx < 0 ? 1 : -1;
+  const far = Math.abs(d.dx) > chartArea.clientWidth * .06;
+  const flick = Math.abs(d.v) > .3 && d.v * d.dx > 0;
+  settle(canShift(dir) && (far || flick) ? dir : 0);
+}
+chartArea.addEventListener('pointerup', chartRelease);
+chartArea.addEventListener('pointercancel', chartRelease); // 브라우저가 스크롤을 가져가도 움직인 만큼으로 넘김/복귀를 정함
+chartArea.addEventListener('click', e => {
+  if(suppressClick){ suppressClick = false; return; }
+  const best = nearestPoint(e.clientX);
+  if(!best) return;
+  view.unpicked = view.point === best.d;
+  view.point = view.unpicked ? null : best.d;
+  haptic();
+  renderSummary();
+  placeCursor(true);
+});
+// 가로로 끌거나 훑는 동안에는 화면이 세로로 딸려 가지 않도록
+chartArea.addEventListener('touchmove', e => { if(scrubbing || (drag && drag.moved)) e.preventDefault(); }, { passive: false });
+chartArea.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- 이벤트: 달력 ----------
+   좌우로 끌면 옆 달이 함께 따라오고, 기준을 넘기거나 빠르게 튕기면 그 달로 넘어감 */
+calClip.addEventListener('pointerdown', e => {
+  if(calBusy || e.button > 0) return;
+  calDrag = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, moved: false, lx: e.clientX, lt: e.timeStamp, v: 0 };
+});
+calClip.addEventListener('pointermove', e => {
+  const c = calDrag;
+  if(!c || c.id !== e.pointerId) return;
+  const dx = e.clientX - c.x, dy = e.clientY - c.y;
+  if(!c.moved){
+    if(Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)){ calDrag = null; return; }
+    if(Math.abs(dx) < 8) return;
+    c.moved = true;
+    try{ calClip.setPointerCapture(e.pointerId); }catch(err){}
+  }
+  const dt = e.timeStamp - c.lt;
+  if(dt > 0) c.v = (e.clientX - c.lx) / dt;
+  c.lx = e.clientX; c.lt = e.timeStamp;
+  c.dx = dx;
+  ensurePeek(dx < 0 ? 1 : -1);
+  calPages.style.transition = 'none';
+  calPages.style.transform = `translateX(${dx}px)`;
+});
+function calRelease(){
+  const c = calDrag;
+  calDrag = null;
+  if(!c || !c.moved) return;
+  calSuppressAt = performance.now(); // 끈 직후의 날짜 탭은 무시
+  const dir = c.dx < 0 ? 1 : -1;
+  const flick = Math.abs(c.dx) > 20 && c.v * dir < -.4;
+  finishCal(!!calPeek && calPeek._dir === dir && (Math.abs(c.dx) > calPages.clientWidth * .2 || flick));
+}
+calClip.addEventListener('pointerup', calRelease);
+calClip.addEventListener('pointercancel', calRelease);
+calClip.addEventListener('touchmove', e => { if(calDrag && calDrag.moved) e.preventDefault(); }, { passive: false });
+calPages.addEventListener('click', e => {
+  if(calBusy || performance.now() - calSuppressAt < 300) return;
+  const b = e.target.closest('button[data-date]');
+  if(!b) return;
+  if(b.dataset.date !== view.selected) haptic();
+  selectDate(b.dataset.date);
+});
+$('calPrev').onclick = () => calGo(monthShift(view.month, -1));
+$('calNext').onclick = () => calGo(monthShift(view.month, 1));
+$('todayBtn').onclick = goToday;
+
+/* ---------- 이벤트: 항목 줄 ----------
+   탭 = 그 자리에서 고치기 / 왼쪽으로 밀기 = 삭제 버튼 (버튼에서 멈추고, 눌러야 지워짐) / 길게 눌러 끌기 = 순서 바꾸기 */
+const ACT_W = 76, HOLD_MS = 450;
+let rowDrag = null, rowSuppressAt = 0, openRow = null, holdTimer = null, reorder = null;
+const liveItems = () => dayClip.querySelector('.day-pane:not(.leaving) .items');
+function setRowX(row, x, animate){
+  const fg = row.querySelector('.item-fg');
+  if(!fg) return;
+  fg.style.transition = animate ? `transform .46s ${SPRING}` : 'none';
+  fg.style.transform = x ? `translateX(${x.toFixed(1)}px)` : '';
+  clearTimeout(row._sw);
+  if(x) row.classList.add('swiping');
+  else if(animate) row._sw = setTimeout(() => row.classList.remove('swiping'), 470);
+  else row.classList.remove('swiping');
+}
+function closeOpenRow(){
+  if(!openRow) return;
+  if(openRow.isConnected) setRowX(openRow, 0, true);
+  openRow = null;
+}
+let pendingEdit = null;
+dayClip.addEventListener('pointerdown', e => {
+  rowDrag = null;
+  const act = document.activeElement;
+  if(act && act.classList.contains('inline-in') && !e.target.closest('input')){
+    const f = e.target.closest('.item-val, .nm'), r = e.target.closest('.item[data-row]');
+    if(f && r){
+      e.preventDefault(); // 브라우저가 포커스를 옮기며 새 입력칸을 닫지 않도록
+      pendingEdit = { cid: r.dataset.row, kind: f.classList.contains('nm') ? 'nm' : 'val' };
+      rowSuppressAt = performance.now();
+      act.blur();
+      return;
+    }
+  }
+  if(reorder || e.button > 0 || e.target.closest('input, button')) return;
+  const row = e.target.closest('.item[data-row]');
+  if(!row) return;
+  if(openRow && openRow !== row){ closeOpenRow(); rowSuppressAt = performance.now(); return; } // 다른 줄이 열려 있으면 그것만 닫음
+  const base = openRow === row ? -ACT_W : 0;
+  rowDrag = { row, id: e.pointerId, x: e.clientX, y: e.clientY, base, cur: base, moved: false, cid: row.dataset.row, lx: e.clientX, lt: e.timeStamp, vx: 0, past: !!base };
+  clearTimeout(holdTimer);
+  if(!base){
+    const y0 = e.clientY, id = e.pointerId;
+    holdTimer = setTimeout(() => startReorder(row, id, y0), HOLD_MS);
+  }
+});
+dayClip.addEventListener('pointermove', e => {
+  if(reorder && reorder.id === e.pointerId){ reorder.lastY = e.clientY; updateReorder(); return; }
+  const d = rowDrag;
+  if(!d || d.id !== e.pointerId) return;
+  const dx = e.clientX - d.x, dy = e.clientY - d.y;
+  if(holdTimer && Math.hypot(dx, dy) > 8){ clearTimeout(holdTimer); holdTimer = null; } // 움직이면 길게 누르기 취소
+  if(!d.moved){
+    if(Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)){ rowDrag = null; return; } // 세로 = 화면 스크롤
+    if(Math.abs(dx) < 10) return;
+    d.moved = true;
+    try{ d.row.setPointerCapture(e.pointerId); }catch(err){}
+  }
+  const dt = e.timeStamp - d.lt;
+  if(dt > 0) d.vx = (e.clientX - d.lx) / dt;
+  d.lx = e.clientX; d.lt = e.timeStamp;
+  let x = d.base + dx;
+  if(x > 0) x = Math.pow(x, .55);                               // 오른쪽으로는 고무줄처럼 조금만
+  else if(x < -ACT_W) x = -ACT_W - Math.pow(-x - ACT_W, .72);   // 버튼 폭을 넘으면 버팀 → 길게 밀어도 바로 지워지지 않음
+  d.cur = x;
+  const past = x <= -ACT_W + 1;
+  if(past !== d.past){ d.past = past; if(past) haptic(); }
+  setRowX(d.row, x, false);
+});
+dayClip.addEventListener('pointerup', e => {
+  clearTimeout(holdTimer); holdTimer = null;
+  if(reorder && reorder.id === e.pointerId){ endReorder(true); return; }
+  const d = rowDrag;
+  rowDrag = null;
+  if(!d || d.id !== e.pointerId) return;
+  if(!d.moved){
+    if(d.base){ closeOpenRow(); rowSuppressAt = performance.now(); } // 열린 줄을 탭하면 닫기만
+    return;
+  }
+  rowSuppressAt = performance.now();
+  const open = d.vx < -.3 ? true : d.vx > .3 ? false : d.cur < -ACT_W / 2;
+  setRowX(d.row, open ? -ACT_W : 0, true);
+  if(open) openRow = d.row;
+  else if(openRow === d.row) openRow = null;
+});
+dayClip.addEventListener('pointercancel', () => {
+  clearTimeout(holdTimer); holdTimer = null;
+  if(reorder){ endReorder(false); return; }
+  const d = rowDrag;
+  rowDrag = null;
+  if(d && d.moved) setRowX(d.row, d.base, true);
+});
+dayClip.addEventListener('click', e => {
+  const act = e.target.closest('[data-act]');
+  if(act){ if(act.dataset.act === 'more') dayMore(); else carryOver(); return; }
+  const del = e.target.closest('.act-del');
+  if(del){
+    const row = del.closest('.item');
+    openRow = null;
+    collapseRow(row, row.dataset.row);
+    return;
+  }
+  if(e.target.closest('input') || performance.now() - rowSuppressAt < 400) return;
+  if(openRow){ closeOpenRow(); return; }
+  const val = e.target.closest('.item-val');
+  if(val) return startValueEdit(val);
+  const nm = e.target.closest('.nm');
+  if(nm) return startNameEdit(nm);
+  const row = e.target.closest('.item[data-row]');
+  if(row){ haptic(); openTrend(row.dataset.row); }
+});
+// 열린 삭제 버튼 바깥을 누르면 닫힘
+document.addEventListener('click', e => {
+  if(!openRow || e.target.closest('.hap')) return;
+  if(!openRow.contains(e.target)) closeOpenRow();
+});
+dayClip.addEventListener('contextmenu', e => { if(e.target.closest('.item')) e.preventDefault(); });
+
+/* ---------- 길게 눌러 순서 바꾸기 ---------- */
+function startReorder(row, id, y0){
+  holdTimer = null;
+  rowDrag = null;
+  if(!row.isConnected) return;
+  closeOpenRow();
+  const rows = [...liveItems().querySelectorAll('.item[data-row]')];
+  const others = rows.filter(x => x !== row);
+  reorder = {
+    row, id, y0Page: y0 + scrollY, lastY: y0, cid: row.dataset.row, to: null, raf: 0,
+    from: rows.indexOf(row), others, pitch: row.offsetHeight,
+    baseTop: row.getBoundingClientRect().top + scrollY,
+    // 움직이기 전 원래 자리의 중앙 (비켜 주는 중인 줄의 위치에 영향받지 않도록 미리 측정)
+    mids: others.map(x => { const rc = x.getBoundingClientRect(); return rc.top + scrollY + rc.height / 2; })
+  };
+  others.forEach(x => { x.style.transition = `transform .42s ${SPRING}`; });
+  dayClip.classList.add('reordering');
+  const fg = row.querySelector('.item-fg');
+  fg.style.transition = ''; fg.style.transform = '';
+  row.classList.remove('swiping');
+  row.style.transition = 'none';
+  row.classList.add('lifted');
+  haptic();
+  try{ row.setPointerCapture(id); }catch(err){}
+  reorder.raf = requestAnimationFrame(autoScroll);
+}
+// 끌고 있는 줄의 현재 중심으로 들어갈 자리를 정하고, 나머지 줄은 그 자리를 비켜 줌
+function updateReorder(){
+  const r = reorder;
+  const raw = r.lastY + scrollY - r.y0Page;
+  const minDy = -r.from * r.pitch, maxDy = r.others.length * r.pitch - r.from * r.pitch;
+  const rub = o => 22 * (1 - Math.exp(-o / 60)); // 목록 끝을 넘으면 최대 22px까지만 버티며 따라옴
+  const dy = raw < minDy ? minDy - rub(minDy - raw) : raw > maxDy ? maxDy + rub(raw - maxDy) : raw;
+  r.dy = dy; r.minDy = minDy; r.maxDy = maxDy;
+  r.row.style.transform = `translateY(${dy}px)`;
+  const center = r.baseTop + r.pitch / 2 + dy;
+  const idx = r.mids.findIndex(m => center < m);
+  const to = idx === -1 ? r.others.length : idx;
+  if(r.to !== null && to !== r.to) haptic();
+  r.to = to;
+  r.others.forEach((x, j) => {
+    const origSlot = j < r.from ? j : j + 1;
+    const finalSlot = j < r.to ? j : j + 1;
+    x.style.transform = finalSlot === origSlot ? '' : `translateY(${(finalSlot - origSlot) * r.pitch}px)`;
+  });
+}
+// 손가락이 화면 위·아래 가장자리에 있으면 화면이 따라 스크롤
+function autoScroll(){
+  const r = reorder;
+  if(!r) return;
+  const E = 90, h = innerHeight;
+  let v = 0;
+  const se = document.scrollingElement;
+  // 줄이 목록 끝에 닿았거나 화면이 더 스크롤될 수 없으면 멈춤 (끝에서 덜컥거리지 않도록)
+  if(r.lastY < E && r.dy > r.minDy && scrollY > 0) v = -(E - r.lastY) / E * 14;
+  else if(r.lastY > h - E && r.dy < r.maxDy && scrollY + h < se.scrollHeight - 1) v = (r.lastY - (h - E)) / E * 14;
+  v = Math.round(v);
+  if(v){ window.scrollBy(0, v); updateReorder(); }
+  r.raf = requestAnimationFrame(autoScroll);
+}
+// 순서 확정: 보이는 항목들의 자리(state.categories 안의 칸)만 새 순서로 채움. 보이지 않는 항목은 그대로
+function endReorder(commitOrder){
+  const r = reorder;
+  reorder = null;
+  cancelAnimationFrame(r.raf);
+  setTimeout(() => dayClip.classList.remove('reordering'), canMove() ? 360 : 0);
+  rowSuppressAt = performance.now(); // 직후 발생하는 클릭(이름 고치기 등) 무시
+  const settleMs = canMove() ? 340 : 0;
+  r.row.classList.remove('lifted');
+  r.row.style.transition = settleMs ? `transform ${settleMs}ms ${SPRING}` : 'none';
+  if(!commitOrder || r.to === null || r.to === r.from){
+    r.row.style.transform = '';
+    r.others.forEach(x => { x.style.transform = ''; });
+    setTimeout(() => renderDay(0), settleMs);
+    return;
+  }
+  const ids = r.others.map(x => x.dataset.row);
+  ids.splice(r.to, 0, r.cid);
+  const visible = new Set(ids);
+  const slots = [];
+  state.categories.forEach((c, i) => { if(visible.has(c.id)) slots.push(i); });
+  const byId = Object.fromEntries(state.categories.map(c => [c.id, c]));
+  ids.forEach((id, k) => { state.categories[slots[k]] = byId[id]; });
+  // 끌던 줄을 놓을 자리에 내려놓은 뒤 저장하고 다시 그림 (나머지 줄은 이미 그 자리에 있음)
+  r.row.style.transform = `translateY(${(r.to - r.from) * r.pitch}px)`;
+  setTimeout(() => { save(); renderDay(0); }, settleMs);
+}
+// 순서를 바꾸는 중에는 브라우저가 화면을 스크롤하지 못하게 막음 (passive:false 여야 막을 수 있음)
+dayClip.addEventListener('touchmove', e => { if(reorder || (rowDrag && rowDrag.moved)) e.preventDefault(); }, { passive: false });
+
+/* ---------- 이벤트: 항목 추가 ----------
+   '항목 추가' 줄이 그 자리에서 입력 줄로 바뀜 (키보드는 자동으로 올리지 않음) */
+const adder = $('adder'), newName = $('newName'), newAmt = $('newAmt'), addOk = $('addOk');
+function setAdder(open){
+  if(adder.classList.contains('open') === open) return;
+  const h0 = adder.offsetHeight;
+  if(!open){
+    [newName, newAmt].forEach(i => { i.blur(); i.value = ''; });
+    syncAddOk();
+  }
+  adder.classList.toggle('open', open);
+  const h1 = adder.offsetHeight;
+  if(canMove()) anim(adder, [{ height: h0 + 'px' }, { height: h1 + 'px' }], { duration: 380, easing: SMOOTH });
+}
+function syncAddOk(){ addOk.disabled = !(newName.value.trim() && /\d/.test(newAmt.value)); }
+$('addOpen').onclick = () => setAdder(true);
+$('addCancel').onclick = () => setAdder(false);
+addOk.onclick = () => {
+  if(addOk.disabled || !addEntry()) return;
+  haptic();
+  setAdder(false);
+  commit();
+};
+newName.addEventListener('input', syncAddOk);
+newAmt.addEventListener('input', () => { fmtAmtInput(newAmt); syncAddOk(); });
+newName.addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); newAmt.focus(); }
+  if(e.key === 'Escape') setAdder(false);
+});
+newAmt.addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); addOk.click(); }
+  if(e.key === 'Escape') setAdder(false);
+});
+
+/* ---------- 이벤트: 아래쪽 메뉴와 판 ---------- */
+$('btnSave').onclick = copyBackup;
+$('btnRestore').onclick = () => openText('restore');
+$('btnReset').onclick = clearAll;
+$('optCancel').onclick = () => closeSheet('optSheet');
+$('trendClose').onclick = () => closeSheet('trendSheet');
+$('cancelText').onclick = () => closeSheet('textSheet');
+$('confirmText').onclick = restore;
+$('copyTextBtn').onclick = copyTextBox;
+$('textArea').addEventListener('input', updatePreview);
+sheetDrag('optSheet', () => closeSheet('optSheet'));
+sheetDrag('trendSheet', () => closeSheet('trendSheet'));
+sheetDrag('textSheet', () => closeSheet('textSheet'));
+sheetDrag('confirmSheet', () => { if(askCancel) askCancel(); });
+// Esc: 가장 위에 열린 것부터 닫음
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  if($('confirmSheet').classList.contains('show')){ if(askCancel) askCancel(); return; }
+  for(const id of ['textSheet', 'optSheet', 'trendSheet']){
+    if($(id).classList.contains('show')){ closeSheet(id); return; }
+  }
+});
+// :active 눌림 표시가 아이폰에서도 보이도록
+document.addEventListener('touchstart', () => {}, { passive: true });
+
+/* ---------- 화면 크기 · 키보드 ---------- */
+let resizeRaf = 0, lastW = innerWidth;
+addEventListener('resize', () => {
+  if(innerWidth === lastW) return; // 주소창이 접히며 높이만 바뀐 경우는 그대로 둠
+  lastW = innerWidth;
+  cancelAnimationFrame(resizeRaf);
+  resizeRaf = requestAnimationFrame(() => {
+    chartScaleCache = null;
+    if(!settling && !drag) renderChart();
+    if(calCur && !calBusy) placeMark(calCur, false);
+    if(!segDrag){ segThumb.style.transition = 'none'; placeSeg(); void segThumb.offsetWidth; segThumb.style.transition = ''; }
+    fitHero();
+  });
+});
+// 키보드가 올라오면 visualViewport가 줄어듦. 그만큼을 --kb로 넘겨 아래쪽 요소·본문·판이 같이 올라가게 함
+const vv = window.visualViewport;
+let lastKb = 0;
+function syncKeyboard(){
+  if(!vv) return;
+  const el = document.activeElement;
+  const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+  // 입력 중일 때만 키보드 높이를 셈. 스크롤 끝에서 튕기는 동안 매번 화면을 다시 배치하지 않도록 바뀔 때만 적용
+  const kb = typing ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+  if(kb === lastKb) return;
+  document.documentElement.style.setProperty('--kb', kb + 'px');
+  if(kb > lastKb && el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && !el.closest('.sheet-bg')){
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+  lastKb = kb;
+}
+if(vv){
+  vv.addEventListener('resize', syncKeyboard);
+  vv.addEventListener('scroll', syncKeyboard);
+}
+
+/* ---------- 시작 ---------- */
+let state = load();
+if(consolidate()) save();
+const now0 = new Date();
+const view = { month: new Date(now0.getFullYear(), now0.getMonth(), 1), selected: ymd(now0), range: '1w', point: null, anchor: null, flash: null };
+// 처음에는 오늘(오늘 기록이 없으면 그 전 마지막 기록)을 고른 상태로 시작
+view.point = [...sortedDates()].filter(d => d <= ymd(now0)).pop() || null;
+
+syncSeg();
+placeSeg();
+renderSummary();
+renderChart();
+renderCalendar();
+renderDay(0);
+uiReady = true;
+wipeChart(); // 처음 한 번, 선이 왼쪽부터 그려짐
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(fitHero); // 글꼴이 늦게 오면 다시 맞춤
+</script>
+</body>
+</html>
