@@ -116,7 +116,7 @@ button:focus:not(:focus-visible){outline:none}
 }
 /* 고른 날 표시: 세로선은 바닥에서 자라고 점은 그 자리에서 커짐. 옮길 때는 미끄러져 감 */
 .cur-line,.cur-dot{position:absolute; pointer-events:none; transition:transform .34s var(--spring); will-change:transform}
-.cur-line{left:-.5px; top:0; bottom:0; width:1px; background:var(--ink3); transform-origin:50% 100%; transform:scaleY(0)}
+.cur-line{display:none; left:-.5px; top:0; bottom:0; width:1px; background:var(--ink3); transform-origin:50% 100%; transform:scaleY(0)}
 .cur-dot{left:-5px; top:-5px; width:10px; height:10px; border-radius:50%; background:var(--ink); box-shadow:0 0 0 2.5px var(--paper); transform:scale(0)}
 .pwrap.scrub .cur-line,.pwrap.scrub .cur-dot{transition:transform .09s ease-out}
 .axis{position:relative; height:12px; margin-top:8px; font-size:11px; line-height:12px; color:var(--ink3)}
@@ -268,11 +268,12 @@ button:focus:not(:focus-visible){outline:none}
 .tr-sub{font-size:14px; color:var(--ink2); margin-top:2px}
 .tr-sub b{font-weight:500; color:var(--ink)}
 .tr-chart{position:relative; margin-top:18px}
-.tr-plot{position:relative}
+.tr-plot{position:relative; touch-action:none; cursor:pointer}
 .tr-chart svg{display:block; width:100%; height:auto; overflow:visible}
 .tr-chart .ln{fill:none; stroke:var(--ink); stroke-width:1.5; stroke-linejoin:round; stroke-linecap:round}
 .tr-chart .base{stroke:var(--rule)}
 .tr-chart .dot{fill:var(--ink)}
+.tr-chart .sel{display:none; fill:var(--ink); stroke:var(--raised); stroke-width:2.5}
 .tr-lbl{position:absolute; font-size:12px; color:var(--ink2); white-space:nowrap; transform:translate(-50%,-100%)}
 .tr-ax{display:flex; justify-content:space-between; font-size:12px; color:var(--ink3); margin-top:6px}
 .tr-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:16px; padding-top:14px; border-top:1px solid var(--rule)}
@@ -787,7 +788,9 @@ function openTrend(cid){
   const pts = ds.map(d => ({ d, v: Number(state.snapshots[d][cid]) }));
   $('trendTitle').textContent = c.name;
   const cur = pts.length ? pts[pts.length - 1] : null;
-  $('trendNow').innerHTML = cur ? unitTokens(cur.v).map(k => k.c === 'u' ? `<span class="u">${k.t}</span>` : k.c === 'sp' ? ' ' : k.t).join('') : '';
+  const tn = $('trendNow');
+  tn._val = null; tn._tok = null;
+  if(cur) setAmount(tn, cur.v, true); else tn.textContent = '';
   const chart = $('trendChart'), stats = $('trendStats');
   if(pts.length < 2){
     $('trendSub').textContent = cur ? `${fmtDay(cur.d, false)} 기록` : '';
@@ -807,7 +810,7 @@ function openTrend(cid){
   const path = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.d).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
   const lbl = (p, cls) => `<span class="tr-lbl ${cls}" style="left:${(X(p.d) / W * 100).toFixed(2)}%; top:${((Y(p.v) - 7) / H * 100).toFixed(2)}%">${short(p.v)}</span>`;
   chart.innerHTML = `<div class="tr-plot"><svg viewBox="0 0 ${W} ${H}"><line class="base" x1="0" y1="${H - .5}" x2="${W}" y2="${H - .5}"/>
-      <path class="ln" d="${path}"/><circle class="dot" r="3.5" cx="${X(cur.d).toFixed(1)}" cy="${Y(cur.v).toFixed(1)}"/></svg>
+      <path class="ln" d="${path}"/><circle class="dot" r="3.5" cx="${X(cur.d).toFixed(1)}" cy="${Y(cur.v).toFixed(1)}"/><circle class="sel" r="5"/></svg>
     ${lbl(first, 'a')}${lbl(cur, 'b')}</div>
     <div class="tr-ax"><span>${fmtDay(first.d, false)}</span><span>${fmtDay(cur.d, false)}</span></div>`;
   // 양끝 금액이 가장자리 밖으로 나가지 않도록
@@ -816,6 +819,42 @@ function openTrend(cid){
   const hiP = pts.reduce((a, b) => b.v > a.v ? b : a), loP = pts.reduce((a, b) => b.v < a.v ? b : a);
   stats.innerHTML = `<div><span>최고</span><b>${short(hiP.v)}</b></div><div><span>최저</span><b>${short(loP.v)}</b></div>
     <div><span>직전 대비</span><b>${(() => { const k = pts[pts.length - 1].v - pts[pts.length - 2].v; return k === 0 ? '변화 없음' : tri(k) + short(Math.abs(k)); })()}</b></div>`;
+  // 누르거나 끌면 그 날의 금액 (큰 그래프와 같은 방식, 같은 점을 다시 누르면 해제)
+  const plot = chart.querySelector('.tr-plot'), svg = plot.querySelector('svg'), dot = plot.querySelector('.sel');
+  const defSub = $('trendSub').innerHTML;
+  let sel = null, pd = null;
+  const show = (p, quiet) => {
+    sel = p;
+    const q = p || cur;
+    dot.style.display = p ? 'inline' : 'none';
+    if(p){ dot.setAttribute('cx', X(p.d).toFixed(1)); dot.setAttribute('cy', Y(p.v).toFixed(1)); }
+    setAmount(tn, q.v, quiet);
+    if(!p){ $('trendSub').innerHTML = defSub; return; }
+    const k = p.v - first.v;
+    $('trendSub').innerHTML = `${fmtDay(p.d, false)} 기록, 처음보다 <b>${k === 0 ? '변화 없음' : tri(k) + unitText(Math.abs(k))}</b>`;
+  };
+  const near = clientX => {
+    const r = svg.getBoundingClientRect(), vx = (clientX - r.left) / r.width * W;
+    return pts.reduce((a, b) => Math.abs(X(b.d) - vx) < Math.abs(X(a.d) - vx) ? b : a);
+  };
+  plot.onpointerdown = e => {
+    pd = { id: e.pointerId, x: e.clientX, moved: false, start: sel };
+    try{ plot.setPointerCapture(e.pointerId); }catch(err){}
+    const p = near(e.clientX);
+    if(p !== sel){ show(p, false); haptic(); }
+  };
+  plot.onpointermove = e => {
+    if(!pd || pd.id !== e.pointerId) return;
+    if(Math.abs(e.clientX - pd.x) > 6) pd.moved = true;
+    if(!pd.moved) return;
+    const p = near(e.clientX);
+    if(p !== sel){ show(p, true); haptic(); }
+  };
+  plot.onpointerup = plot.onpointercancel = e => {
+    if(!pd || pd.id !== e.pointerId) return;
+    const g = pd; pd = null;
+    if(!g.moved && g.start && near(e.clientX) === g.start){ show(null, false); haptic(); }
+  };
   openSheet('trendSheet');
 }
 
