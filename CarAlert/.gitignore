@@ -3,3 +3,5 @@ build/
 local.properties
 *.iml
 .idea/
+core/target/
+app/src/main/jniLibs/

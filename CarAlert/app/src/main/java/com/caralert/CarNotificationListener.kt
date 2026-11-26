@@ -7,6 +7,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.Icon
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.speech.tts.TextToSpeech
@@ -14,7 +17,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** 휴대폰에 뜨는 모든 알림을 받아서 입차/출차 문구를 찾는 서비스 */
+/**
+ * 휴대폰 알림을 받아 Rust 코어에 넘기는 서비스.
+ * (안드로이드에서 다른 앱 알림을 읽는 클래스는 Kotlin/Java 로만 만들 수 있어 이 부분만 Kotlin)
+ */
 class CarNotificationListener : NotificationListenerService() {
 
     private lateinit var store: Store
@@ -53,34 +59,34 @@ class CarNotificationListener : NotificationListenerService() {
         if (full.isEmpty()) return
 
         val appName = appLabel(sbn.packageName)
-        store.addRaw("${now()}  [$appName] $full")
+        store.addRaw("${stamp()}  [$appName] $full")
 
         // 앱 필터
-        val filters = CarParser.splitList(store.appFilter)
+        val filters = store.appFilter.split(',').map { it.trim() }.filter { it.isNotEmpty() }
         if (filters.isNotEmpty() && filters.none {
                 sbn.packageName.contains(it, true) || appName.contains(it, true)
             }) return
 
-        val ev = CarParser.parse(
-            full,
-            CarParser.splitList(store.inKeywords),
-            CarParser.splitList(store.outKeywords)
-        ) ?: return
-
-        // 우리 집 차량이 등록돼 있으면 그 차량만 처리
+        // 해석은 Rust 코어에서
+        val hit = Core.parse(full, store.inKeywords, store.outKeywords, store.myPlates) ?: return
         val cars = store.cars()
-        val car = CarParser.matchCar(ev.plate, cars)
-        if (cars.isNotEmpty() && car == null) return
+        if (cars.isNotEmpty() && hit.index < 0) return   // 등록 차량만
 
-        // 같은 내용이 60초 안에 또 오면 무시 (알림 갱신·중복 대비)
-        val key = "${ev.type}|${ev.plate ?: full}"
+        // 같은 내용이 60초 안에 또 오면 무시
+        val key = "${hit.type}|${hit.plate.ifEmpty { full }}"
         val t = System.currentTimeMillis()
         if (t - (recent[key] ?: 0L) < 60_000) return
         recent[key] = t
 
-        if (car != null) store.setState(car, ev.type, now())
-        announce(this, store, ev, car, appName, full)
-        if (store.ttsOn) speak(spokenText(ev, car, store))
+        val car = cars.getOrNull(hit.index)
+        if (car != null) store.setState(car, hit.isIn, t)
+        store.addHistory("${stamp()}\t${hit.title.substringBeforeLast(' ')}\t${hit.title.substringAfterLast(' ')}")
+
+        if (store.notifyOn) {
+            if (car != null) postStatus(this, store, event = hit.title)
+            else postSingle(this, hit.title, full)
+        }
+        if (store.ttsOn) speak(Core.spoken(hit.title, car != null, store.summary()))
     }
 
     private fun speak(text: String) {
@@ -95,90 +101,74 @@ class CarNotificationListener : NotificationListenerService() {
 
     companion object {
         const val CHANNEL = "car_inout"
+        private const val STATUS_ID = 1
 
-        fun now(): String = SimpleDateFormat("MM/dd HH:mm", Locale.KOREA).format(Date())
-
-        const val STATUS_ID = 1
-
-        /** 알림 제목: "아빠 입차" */
-        fun titleText(ev: CarParser.Event, car: CarParser.Car?): String =
-            "${car?.name ?: ev.plate ?: "차량"} ${ev.type.label}"
-
-        /** 음성: "아빠 입차. 현재 아빠가 집에 있습니다." */
-        fun spokenText(ev: CarParser.Event, car: CarParser.Car? = null, store: Store? = null): String {
-            if (car != null && store != null) return "${titleText(ev, car)}. ${store.summary()}."
-            val plate = ev.plate?.let { p ->
-                // 뒷자리 4숫자는 하나씩 읽게 띄어쓰기
-                p.dropLast(4) + " " + p.takeLast(4).toCharArray().joinToString(" ")
-            } ?: "차량"
-            return "$plate ${ev.type.label}."
-        }
-
-        /** 차량별 마지막 기록: "아빠 08:30 입차 · 엄마 07:50 출차" */
-        fun detailText(store: Store): String = store.cars().joinToString(" · ") { car ->
-            val st = store.getState(car)
-            if (st == null) "${car.name} 기록 없음"
-            else "${car.name} ${st.second.substringAfter(' ')} ${st.first.label}"
-        }
-
-        /** 알림창에 고정되는 집 현황 알림 */
-        fun updateStatus(ctx: Context, store: Store) {
-            if (store.cars().isEmpty()) return
-            val open = PendingIntent.getActivity(
-                ctx, 1, Intent(ctx, MainActivity::class.java),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            val n = Notification.Builder(ctx, STATUS_CHANNEL)
-                .setSmallIcon(android.R.drawable.ic_menu_myplaces)
-                .setContentTitle(store.summary())
-                .setContentText(detailText(store))
-                .setContentIntent(open)
-                .setOngoing(true)
-                .setOnlyAlertOnce(true)
-                .build()
-            try {
-                ctx.getSystemService(NotificationManager::class.java).notify(STATUS_ID, n)
-            } catch (_: SecurityException) { }
-        }
-
-        const val STATUS_CHANNEL = "home_status"
+        fun stamp(): String = SimpleDateFormat("MM/dd HH:mm", Locale.KOREA).format(Date())
 
         fun createChannel(ctx: Context) {
             val nm = ctx.getSystemService(NotificationManager::class.java)
             nm.createNotificationChannel(
                 NotificationChannel(CHANNEL, "입출차 알림", NotificationManager.IMPORTANCE_HIGH)
             )
-            nm.createNotificationChannel(
-                NotificationChannel(STATUS_CHANNEL, "집 현황 (고정)", NotificationManager.IMPORTANCE_LOW)
-            )
+            nm.deleteNotificationChannel("home_status") // 예전 버전의 별도 현황 채널 정리
         }
 
-        /** 기록 저장 + 알림 표시. 기록 형식: 시각\t이름\t입차/출차 */
-        fun announce(
-            ctx: Context, store: Store, ev: CarParser.Event,
-            car: CarParser.Car?, app: String, raw: String
-        ) {
-            val who = car?.name ?: ev.plate ?: "번호 없음"
-            store.addHistory("${now()}\t$who\t${ev.type.label}")
-            updateStatus(ctx, store)
+        private fun bitmap(ctx: Context, res: Int): Bitmap {
+            val d = ctx.getDrawable(res)!!
+            val size = (64 * ctx.resources.displayMetrics.density).toInt()
+            return Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).also {
+                d.setBounds(0, 0, size, size)
+                d.draw(Canvas(it))
+            }
+        }
 
-            if (!store.notifyOn) return
-            val open = PendingIntent.getActivity(
-                ctx, 0, Intent(ctx, MainActivity::class.java),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            val body = if (car != null) store.summary() else raw
+        private fun openApp(ctx: Context) = PendingIntent.getActivity(
+            ctx, 0, Intent(ctx, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        /**
+         * 집 현황 알림 (한 개를 계속 갱신)
+         *   아빠 : X ( 16:08~ )
+         *   엄마 : O ( 13:47~ )
+         * event 가 있으면 소리/진동, 없으면(수동 변경) 조용히 갱신
+         */
+        fun postStatus(ctx: Context, store: Store, event: String? = null) {
+            val lines = store.statusLines()
+            if (lines.isEmpty()) return
+            val large = if (store.anyoneHome()) R.drawable.ic_large_home else R.drawable.ic_large_away
+            val rest = lines.drop(1).joinToString("\n")
+            val b = Notification.Builder(ctx, CHANNEL)
+                .setSmallIcon(R.drawable.ic_stat_car)
+                .setLargeIcon(Icon.createWithBitmap(bitmap(ctx, large)))
+                .setColor(if (store.anyoneHome()) 0xFF16A34A.toInt() else 0xFF475569.toInt())
+                .setContentTitle(lines[0])
+                .setContentText(rest)
+                .setContentIntent(openApp(ctx))
+                .setOngoing(true)
+                .setShowWhen(event != null)
+                .setOnlyAlertOnce(event == null)
+            if (lines.size > 2) b.setStyle(Notification.BigTextStyle().bigText(rest))
+            if (event != null) b.setSubText(event)
+            try {
+                ctx.getSystemService(NotificationManager::class.java).notify(STATUS_ID, b.build())
+            } catch (_: SecurityException) { /* 알림 권한 없음 */ }
+        }
+
+        /** 차량 미등록 상태에서 들어온 입출차 알림 */
+        private fun postSingle(ctx: Context, title: String, raw: String) {
             val n = Notification.Builder(ctx, CHANNEL)
-                .setSmallIcon(android.R.drawable.ic_menu_directions)
-                .setContentTitle(titleText(ev, car))
-                .setContentText(body)
-                .setContentIntent(open)
+                .setSmallIcon(R.drawable.ic_stat_car)
+                .setLargeIcon(Icon.createWithBitmap(bitmap(ctx, R.drawable.ic_large_away)))
+                .setContentTitle(title)
+                .setContentText(raw)
+                .setContentIntent(openApp(ctx))
                 .setAutoCancel(true)
                 .build()
             try {
                 ctx.getSystemService(NotificationManager::class.java)
                     .notify((System.currentTimeMillis() % 1_000_000).toInt() + 10, n)
-            } catch (_: SecurityException) { /* 알림 권한 없음 */ }
+            } catch (_: SecurityException) { }
         }
     }
 }

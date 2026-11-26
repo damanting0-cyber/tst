@@ -25,44 +25,35 @@ class Store(ctx: Context) {
         get() = prefs.getString("my_plates", "")!!
         set(v) = prefs.edit().putString("my_plates", v).apply()
 
-    fun cars() = CarParser.parseCars(myPlates)
+    fun cars(): List<Core.Car> = Core.carList(myPlates)
 
-    // 차량별 현재 상태: 마지막이 입차면 집, 출차면 외출
-    fun setState(car: CarParser.Car, type: CarParser.Type, time: String) =
-        prefs.edit().putString("state_${car.key}", "${type.name}|$time").apply()
+    // 차량별 현재 상태 "IN|시각(ms)": 마지막이 입차면 집, 출차면 외출
+    fun setState(car: Core.Car, isIn: Boolean, ms: Long = System.currentTimeMillis()) =
+        prefs.edit().putString("state_${car.plate}", "${if (isIn) "IN" else "OUT"}|$ms").apply()
 
-    /** (타입, 시각) 또는 기록 없음이면 null */
-    fun getState(car: CarParser.Car): Pair<CarParser.Type, String>? {
-        val v = prefs.getString("state_${car.key}", null) ?: return null
-        val (t, time) = v.split('|', limit = 2)
-        return CarParser.Type.valueOf(t) to time
+    /** (집에 있음?, 시각ms 또는 null) / 기록 없으면 null */
+    fun getState(car: Core.Car): Pair<Boolean, Long?>? {
+        val v = prefs.getString("state_${car.plate}", null) ?: return null
+        val (t, time) = (v.split('|', limit = 2) + "").take(2)
+        return (t == "IN") to time.toLongOrNull()
     }
 
-    fun isHome(car: CarParser.Car) = getState(car)?.first == CarParser.Type.IN
+    /** 등록 차량 순서대로 상태를 한 줄씩 (Rust 에 넘기는 형식) */
+    fun statesText(): String =
+        cars().joinToString("\n") { prefs.getString("state_${it.plate}", "")!! }
 
-    /** "현재 아빠가 집에 있습니다" / "현재 집에 아무도 없습니다" */
-    fun summary(): String {
-        val cars = cars()
-        if (cars.isEmpty()) return "등록된 차량이 없습니다"
-        val home = cars.filter { isHome(it) }.map { it.name }
-        if (home.isEmpty()) return "현재 집에 아무도 없습니다"
-        val names = home.joinToString(", ")
-        return "현재 $names${subjectJosa(names)} 집에 있습니다"
-    }
+    fun anyoneHome(): Boolean = cars().any { getState(it)?.first == true }
+
+    /** "현재 아빠가 집에 있습니다" */
+    fun summary(): String = Core.summary(myPlates, statesText())
+
+    /** ["아빠 : X ( 16:08~ )", "엄마 : O ( 13:47~ )"] */
+    fun statusLines(): List<String> =
+        Core.statusText(myPlates, statesText(), System.currentTimeMillis(), Core.tz())
+            .split('\n').filter { it.isNotEmpty() }
 
     companion object {
         private const val SEP = "\u001E"
-
-        /** 받침 유무에 따라 이/가 */
-        fun subjectJosa(word: String): String {
-            val c = word.trim().lastOrNull() ?: return "가"
-            val hasBatchim = when (c) {
-                in '가'..'힣' -> (c - '가') % 28 != 0
-                in '0'..'9' -> c in "013678"   // 영 일 삼 육 칠 팔
-                else -> false
-            }
-            return if (hasBatchim) "이" else "가"
-        }
     }
 
     var ttsOn: Boolean

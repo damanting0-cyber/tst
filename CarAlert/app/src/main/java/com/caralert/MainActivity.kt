@@ -42,6 +42,7 @@ class MainActivity : Activity() {
     private lateinit var store: Store
     private var tts: TextToSpeech? = null
 
+    private lateinit var headIcon: android.widget.ImageView
     private lateinit var summaryView: TextView
     private lateinit var detailView: TextView
     private lateinit var permCard: LinearLayout
@@ -86,7 +87,13 @@ class MainActivity : Activity() {
         })
 
         // ── 헤더: 현재 상황 ──
-        root.addView(label("입출차 알리미", 14f, SUB).pad(4, 0, 4, 6))
+        val head = row().pad(4, 0, 4, 10)
+        headIcon = android.widget.ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40)).apply { rightMargin = dp(12) }
+        }
+        head.addView(headIcon)
+        head.addView(label("입출차 알리미", 15f, SUB, bold = true))
+        root.addView(head)
         summaryView = label("", 26f, TEXT, bold = true).pad(4, 0, 4, 4)
         detailView = label("", 14f, SUB).pad(4, 0, 4, 20)
         root.addView(summaryView); root.addView(detailView)
@@ -136,7 +143,7 @@ class MainActivity : Activity() {
                 store.myPlates = plates.text.toString()
                 store.ttsOn = ttsSw.isChecked
                 store.notifyOn = notiSw.isChecked
-                CarNotificationListener.updateStatus(this@MainActivity, store)
+                CarNotificationListener.postStatus(this@MainActivity, store)
                 toast("저장했습니다")
             }.margin(top = 12))
             addView(secondaryButton("배터리 최적화 해제") {
@@ -162,15 +169,13 @@ class MainActivity : Activity() {
             addView(title("인식 테스트"))
             val sample = field(this, "알림 문구", "", "[아파트] 12가3456 차량이 입차하였습니다.")
             addView(secondaryButton("테스트") {
-                val ev = CarParser.parse(
-                    sample.text.toString(),
-                    CarParser.splitList(inKw.text.toString()),
-                    CarParser.splitList(outKw.text.toString())
+                val hit = Core.parse(
+                    sample.text.toString(), inKw.text.toString(),
+                    outKw.text.toString(), plates.text.toString()
                 )
-                if (ev == null) toast("입차/출차 키워드를 찾지 못했습니다")
+                if (hit == null) toast("입차/출차 키워드를 찾지 못했습니다")
                 else {
-                    val car = CarParser.matchCar(ev.plate, CarParser.parseCars(plates.text.toString()))
-                    val title = CarNotificationListener.titleText(ev, car)
+                    val title = hit.title
                     toast("인식됨: $title")
                     if (ttsSw.isChecked) tts?.speak(title, TextToSpeech.QUEUE_FLUSH, null, "test")
                 }
@@ -203,9 +208,10 @@ class MainActivity : Activity() {
             ?.contains(packageName) == true
         permCard.visibility = if (enabled) View.GONE else View.VISIBLE
 
+        headIcon.setImageResource(if (store.anyoneHome()) R.drawable.ic_large_home else R.drawable.ic_large_away)
         summaryView.text = store.summary()
         detailView.text = if (store.cars().isEmpty()) "아래 설정에서 차량을 등록하세요"
-                          else CarNotificationListener.detailText(store)
+                          else store.statusLines().joinToString("\n")
 
         // 가족 현황
         familyBox.removeAllViews()
@@ -214,7 +220,8 @@ class MainActivity : Activity() {
         cars.forEachIndexed { i, car ->
             if (i > 0) familyBox.addView(divider())
             val st = store.getState(car)
-            val home = st?.first == CarParser.Type.IN
+            val home = st?.first == true
+            val time = st?.second?.let { Core.fmtTime(it, System.currentTimeMillis(), Core.tz()) }
             val r = row().pad(0, 12, 0, 12)
             r.addView(View(this).apply {
                 background = GradientDrawable().apply {
@@ -228,14 +235,14 @@ class MainActivity : Activity() {
             texts.addView(label(
                 when {
                     st == null -> "기록 없음"
-                    home -> "집 · ${st.second} 입차"
-                    else -> "외출 · ${st.second} 출차"
+                    home -> if (time != null) "집 · $time 입차" else "집"
+                    else -> if (time != null) "외출 · $time 출차" else "외출"
                 }, 13f, SUB
             ))
             r.addView(texts.weight())
             r.addView(segmented(home, st != null,
-                onHome = { setManual(car, CarParser.Type.IN) },
-                onAway = { setManual(car, CarParser.Type.OUT) }))
+                onHome = { setManual(car, true) },
+                onAway = { setManual(car, false) }))
             familyBox.addView(r)
         }
 
@@ -258,9 +265,9 @@ class MainActivity : Activity() {
         rawView.text = store.recentRaw().joinToString("\n\n").ifEmpty { "아직 받은 알림이 없습니다." }
     }
 
-    private fun setManual(car: CarParser.Car, type: CarParser.Type) {
-        store.setState(car, type, CarNotificationListener.now())
-        CarNotificationListener.updateStatus(this, store)
+    private fun setManual(car: Core.Car, isIn: Boolean) {
+        store.setState(car, isIn)
+        CarNotificationListener.postStatus(this, store)
     }
 
     // ── UI 헬퍼 ──

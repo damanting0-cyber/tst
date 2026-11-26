@@ -24,6 +24,24 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: CarAlert/core
+
+      - name: Rust 코어 테스트 + 안드로이드용 빌드
+        working-directory: CarAlert/core
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
+        run: |
+          cargo test --quiet
+          cargo install cargo-ndk --locked
+          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o ../app/src/main/jniLibs build --release
+          ls -la ../app/src/main/jniLibs/*
+
       - name: Build APK
         run: |
           chmod +x gradlew
