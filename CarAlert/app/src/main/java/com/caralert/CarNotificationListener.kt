@@ -127,12 +127,10 @@ class CarNotificationListener : NotificationListenerService() {
             val nm = ctx.getSystemService(NotificationManager::class.java)
             val title = store.lastOutTitle()
             val text = store.summary()
-            val icon = if (store.anyoneHome()) R.drawable.ic_large_home else R.drawable.ic_large_away
 
             val view = RemoteViews(ctx.packageName, R.layout.notif_status).apply {
                 setTextViewText(R.id.n_title, title)
                 setTextViewText(R.id.n_text, text)
-                setImageViewResource(R.id.n_icon, icon)
             }
             val n = Notification.Builder(ctx, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_car)
