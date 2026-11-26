@@ -42,6 +42,16 @@ class Store(ctx: Context) {
     fun statesText(): String =
         cars().joinToString("\n") { prefs.getString("state_${it.plate}", "")!! }
 
+    /** 가장 최근 출차 (이름, 시각ms) */
+    fun setLastOut(name: String, ms: Long) =
+        prefs.edit().putString("last_out_name", name).putLong("last_out_ms", ms).apply()
+
+    /** 알림 제목: "16:08 아빠 출차" */
+    fun lastOutTitle(): String = Core.outTitle(
+        prefs.getString("last_out_name", "")!!, prefs.getLong("last_out_ms", 0L),
+        System.currentTimeMillis(), Core.tz()
+    )
+
     fun anyoneHome(): Boolean = cars().any { getState(it)?.first == true }
 
     /** "현재 아빠가 집에 있습니다" */

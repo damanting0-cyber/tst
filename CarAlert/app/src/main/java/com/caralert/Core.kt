@@ -15,6 +15,7 @@ object Core {
     @JvmStatic external fun spoken(title: String, known: Boolean, summary: String): String
     @JvmStatic external fun cars(cfg: String): String
     @JvmStatic external fun fmtTime(ms: Long, now: Long, tz: Int): String
+    @JvmStatic external fun outTitle(name: String, ms: Long, now: Long, tz: Int): String
 
     /** 현재 시간대 오프셋(분), 한국 = 540 */
     fun tz(): Int = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 60_000

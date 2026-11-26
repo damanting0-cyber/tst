@@ -110,6 +110,15 @@ pub extern "system" fn Java_com_caralert_Core_fmtTime<'l>(
     ret(&mut env, fmt_time(ms, now, tz))
 }
 
+#[no_mangle]
+pub extern "system" fn Java_com_caralert_Core_outTitle<'l>(
+    mut env: JNIEnv<'l>, _c: JClass<'l>, name: JString<'l>, ms: jlong, now: jlong, tz: jint,
+) -> jstring {
+    let n = get(&mut env, &name);
+    let ms = if ms > 0 { Some(ms) } else { None };
+    ret(&mut env, out_title(&n, ms, now, tz))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

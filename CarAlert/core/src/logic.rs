@@ -234,6 +234,14 @@ pub fn status_lines(cars: &[Car], states: &[Option<State>], now_ms: i64, tz: i32
         .collect()
 }
 
+/// 알림 제목: 가장 최근 출차 "16:08 아빠 출차" (기록 없으면 "출차 기록 없음")
+pub fn out_title(name: &str, ms: Option<i64>, now_ms: i64, tz: i32) -> String {
+    match ms {
+        Some(ms) if !name.is_empty() => format!("{} {} 출차", fmt_time(ms, now_ms, tz), name),
+        _ => "출차 기록 없음".into(),
+    }
+}
+
 /// 음성: "아빠 입차. 현재 아빠가 집에 있습니다." (모르는 차는 번호를 한 자씩)
 pub fn spoken(title: &str, known_car: bool, summary: &str) -> String {
     if known_car {
@@ -315,6 +323,14 @@ mod tests {
         assert_eq!(status_line(&cars[0], None, now, 540), "아빠 : - ( 기록 없음 )");
         assert_eq!(parse_state("IN|123"), Some(State { kind: Kind::In, since_ms: Some(123) }));
         assert_eq!(parse_state("OUT|11/20 08:00"), Some(State { kind: Kind::Out, since_ms: None }));
+    }
+
+    #[test]
+    fn out_title_text() {
+        let now = 1_795_676_880_000i64;
+        assert_eq!(out_title("아빠", Some(now), now, 540), "16:08 아빠 출차");
+        assert_eq!(out_title("엄마", Some(now - 86_400_000), now, 540), "11/25 16:08 엄마 출차");
+        assert_eq!(out_title("", None, now, 540), "출차 기록 없음");
     }
 
     #[test]

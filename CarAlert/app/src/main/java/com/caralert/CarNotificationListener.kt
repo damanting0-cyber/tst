@@ -7,9 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.drawable.Icon
+import android.widget.RemoteViews
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.speech.tts.TextToSpeech
@@ -80,11 +78,11 @@ class CarNotificationListener : NotificationListenerService() {
 
         val car = cars.getOrNull(hit.index)
         if (car != null) store.setState(car, hit.isIn, t)
+        if (!hit.isIn) store.setLastOut(car?.name ?: hit.plate.ifEmpty { "차량" }, t)
         store.addHistory("${stamp()}\t${hit.title.substringBeforeLast(' ')}\t${hit.title.substringAfterLast(' ')}")
 
         if (store.notifyOn) {
-            if (car != null) postStatus(this, store, event = hit.title)
-            else postSingle(this, hit.title, full)
+            postStatus(this, store, alert = true)
         }
         if (store.ttsOn) speak(Core.spoken(hit.title, car != null, store.summary()))
     }
@@ -113,62 +111,46 @@ class CarNotificationListener : NotificationListenerService() {
             nm.deleteNotificationChannel("home_status") // 예전 버전의 별도 현황 채널 정리
         }
 
-        private fun bitmap(ctx: Context, res: Int): Bitmap {
-            val d = ctx.getDrawable(res)!!
-            val size = (64 * ctx.resources.displayMetrics.density).toInt()
-            return Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).also {
-                d.setBounds(0, 0, size, size)
-                d.draw(Canvas(it))
-            }
-        }
-
         private fun openApp(ctx: Context) = PendingIntent.getActivity(
             ctx, 0, Intent(ctx, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         /**
-         * 집 현황 알림 (한 개를 계속 갱신)
-         *   아빠 : X ( 16:08~ )
-         *   엄마 : O ( 13:47~ )
-         * event 가 있으면 소리/진동, 없으면(수동 변경) 조용히 갱신
+         * 직접 디자인한 알림 (항상 한 개만 유지)
+         *   제목: 가장 최근 출차   "16:08 아빠 출차"
+         *   내용: 집에 있는 사람   "현재 아빠가 집에 있습니다"
+         * alert = 새 입출차 인식 → 기존 알림을 지우고 새로 띄움(소리/진동)
+         * alert = false → 기존 알림 내용만 조용히 갱신 (앱에서 수동 변경 등)
          */
-        fun postStatus(ctx: Context, store: Store, event: String? = null) {
-            val lines = store.statusLines()
-            if (lines.isEmpty()) return
-            val large = if (store.anyoneHome()) R.drawable.ic_large_home else R.drawable.ic_large_away
-            val rest = lines.drop(1).joinToString("\n")
-            val b = Notification.Builder(ctx, CHANNEL)
-                .setSmallIcon(R.drawable.ic_stat_car)
-                .setLargeIcon(Icon.createWithBitmap(bitmap(ctx, large)))
-                .setColor(if (store.anyoneHome()) 0xFF16A34A.toInt() else 0xFF475569.toInt())
-                .setContentTitle(lines[0])
-                .setContentText(rest)
-                .setContentIntent(openApp(ctx))
-                .setOngoing(true)
-                .setShowWhen(event != null)
-                .setOnlyAlertOnce(event == null)
-            if (lines.size > 2) b.setStyle(Notification.BigTextStyle().bigText(rest))
-            if (event != null) b.setSubText(event)
-            try {
-                ctx.getSystemService(NotificationManager::class.java).notify(STATUS_ID, b.build())
-            } catch (_: SecurityException) { /* 알림 권한 없음 */ }
-        }
+        fun postStatus(ctx: Context, store: Store, alert: Boolean = false) {
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            val title = store.lastOutTitle()
+            val text = store.summary()
+            val icon = if (store.anyoneHome()) R.drawable.ic_large_home else R.drawable.ic_large_away
 
-        /** 차량 미등록 상태에서 들어온 입출차 알림 */
-        private fun postSingle(ctx: Context, title: String, raw: String) {
+            val view = RemoteViews(ctx.packageName, R.layout.notif_status).apply {
+                setTextViewText(R.id.n_title, title)
+                setTextViewText(R.id.n_text, text)
+                setImageViewResource(R.id.n_icon, icon)
+            }
             val n = Notification.Builder(ctx, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_car)
-                .setLargeIcon(Icon.createWithBitmap(bitmap(ctx, R.drawable.ic_large_away)))
-                .setContentTitle(title)
-                .setContentText(raw)
+                .setColor(if (store.anyoneHome()) 0xFF16A34A.toInt() else 0xFF475569.toInt())
+                .setStyle(Notification.DecoratedCustomViewStyle())
+                .setCustomContentView(view)
+                .setCustomBigContentView(view)
+                .setContentTitle(title)   // 잠금화면·워치 등 기본 표시용
+                .setContentText(text)
                 .setContentIntent(openApp(ctx))
-                .setAutoCancel(true)
+                .setOngoing(true)
+                .setShowWhen(alert)
+                .setOnlyAlertOnce(!alert)
                 .build()
             try {
-                ctx.getSystemService(NotificationManager::class.java)
-                    .notify((System.currentTimeMillis() % 1_000_000).toInt() + 10, n)
-            } catch (_: SecurityException) { }
+                if (alert) nm.cancelAll()   // 이 앱이 띄운 기존 알림 모두 삭제 후 새로
+                nm.notify(STATUS_ID, n)
+            } catch (_: SecurityException) { /* 알림 권한 없음 */ }
         }
     }
 }
