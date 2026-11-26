@@ -34,9 +34,9 @@ jobs:
 
       - name: Rust 코어 테스트 + 안드로이드용 빌드
         working-directory: CarAlert/core
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
         run: |
+          export ANDROID_NDK_HOME="${ANDROID_NDK_ROOT:-$ANDROID_NDK_LATEST_HOME}"
+          echo "NDK: $ANDROID_NDK_HOME"
           cargo test --quiet
           cargo install cargo-ndk --locked
           cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o ../app/src/main/jniLibs build --release
