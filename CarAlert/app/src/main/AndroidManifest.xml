@@ -19,6 +19,8 @@
             </intent-filter>
         </activity>
 
+        <receiver android:name=".RepostReceiver" android:exported="false" />
+
         <!-- 다른 앱의 알림을 읽는 서비스 (사용자가 '알림 접근 허용'을 켜야 동작) -->
         <service
             android:name=".CarNotificationListener"

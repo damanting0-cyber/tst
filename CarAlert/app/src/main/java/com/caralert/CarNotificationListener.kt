@@ -141,6 +141,9 @@ class CarNotificationListener : NotificationListenerService() {
                 .setContentTitle(title)   // 잠금화면·워치 등 기본 표시용
                 .setContentText(text)
                 .setContentIntent(openApp(ctx))
+                .setDeleteIntent(PendingIntent.getBroadcast(
+                    ctx, 2, Intent(ctx, RepostReceiver::class.java),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
                 .setOngoing(true)
                 .setShowWhen(alert)
                 .setOnlyAlertOnce(!alert)
